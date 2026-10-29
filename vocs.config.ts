@@ -13,7 +13,7 @@ export default defineConfig({
   topNav: [
     { text: 'Docs', link: '/' },
     { text: 'EEZ Demos', link: 'https://build.eez.io', external: true },
-    { text: 'eez.dev', link: 'https://eez.dev', external: true },
+    { text: 'rollupx.eez.dev', link: 'https://rollupx.eez.dev/dashboard', external: true },
   ],
   // Serialized with toString, so it must stay self-contained. Synced pages map back
   // to upstream `docs/` names (blobs/blob-format-spec.md → blobs/BLOB_FORMAT_SPEC.md).

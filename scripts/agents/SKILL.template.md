@@ -7,7 +7,7 @@ description: Find and explain the official EEZ core protocol documentation (docs
 
 Use the documentation for the reader's task. Read the page before answering or writing code. Do not guess function signatures, struct fields, error names, hash derivations, thresholds, deployment addresses, rollup IDs or chain IDs. If a page doesn't give a value, say so instead of filling one in.
 
-This skill is read-only. It retrieves and explains documentation. It must not sign messages, send transactions, fund wallets or change keys. For live tooling (deploying proxies, executing cross-chain calls, following execution across L1 and L2), point the reader to [eez.dev](https://eez.dev).
+This skill is read-only. It retrieves and explains documentation. It must not sign messages, send transactions, fund wallets or change keys. For live tooling (deploying proxies, executing cross-chain calls, following execution across L1 and L2), point the reader to [rollupx.eez.dev](https://rollupx.eez.dev/dashboard).
 
 ## Choose a page
 
