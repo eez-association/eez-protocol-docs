@@ -38,6 +38,7 @@ const source = (link) =>
 const pages = []
 for (const item of config.sidebar) {
   for (const p of item.items ?? [item]) {
+    if (/^https?:\/\//.test(p.link)) continue // external links (Quickstarts) aren't pages
     const file = source(p.link)
     if (!file) throw new Error(`agents: no source for ${p.link}`)
     if (file.endsWith('.mdx')) continue

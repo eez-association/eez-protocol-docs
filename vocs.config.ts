@@ -12,8 +12,11 @@ export default defineConfig({
   description: 'Specifications for the EEZ core protocol contracts.',
   topNav: [
     { text: 'Docs', link: '/' },
-    { text: 'EEZ Demos', link: 'https://build.eez.io', external: true },
-    { text: 'rollupx.eez.dev', link: 'https://rollupx.eez.dev/dashboard', external: true },
+    { text: 'Quickstarts', link: 'https://build.eez.io', external: true },
+    { text: 'Dashboard', link: 'https://rollupx.eez.dev/dashboard', external: true },
+    { text: 'GitHub', link: 'https://github.com/eez-association', external: true },
+    // Last item is styled as a button in src/pages/_root.css (topNav has no button style).
+    { text: 'Get in touch', link: 'https://tally.so/r/NpLo4l', external: true },
   ],
   // Serialized with toString, so it must stay self-contained. Synced pages map back
   // to upstream `docs/` names (blobs/blob-format-spec.md → blobs/BLOB_FORMAT_SPEC.md).
@@ -40,6 +43,7 @@ export default defineConfig({
   sidebar: [
     { text: 'Introduction', link: '/' },
     { text: 'Walkthrough', link: '/eez-walkthrough' },
+    { text: 'Try it: Quickstarts', link: 'https://build.eez.io' },
     { text: 'Build with AI', link: '/build-with-ai' },
     {
       text: 'Specification',
