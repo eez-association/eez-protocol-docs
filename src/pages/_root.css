@@ -219,3 +219,18 @@ a:focus-visible, button:focus-visible, input:focus-visible, pre:focus-visible {
 
 /* Step titles are flex in Vocs, which splits titles with inline code into columns */
 [data-v-step-title] { display: block; }
+
+/* Top nav: the last item ("Get in touch") is the call-to-action button. Vocs topNav
+   has no button style, so it is matched by its link. Same look as build.eez.io's button. */
+nav li:has(> a[href^="https://tally.so/"]) { display: flex; align-items: center; margin-left: 8px; }
+nav a[href^="https://tally.so/"] {
+  height: auto;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--eez-grad);
+  color: var(--eez-canvas);
+  font-weight: 500;
+}
+nav a[href^="https://tally.so/"]:hover { color: var(--eez-canvas); filter: brightness(1.08); }
+nav a[href^="https://tally.so/"] svg { color: inherit; opacity: .6; }
