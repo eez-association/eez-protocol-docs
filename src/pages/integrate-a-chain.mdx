@@ -1,5 +1,5 @@
 ---
-description: "High-level guide to integrating a chain with EEZ: interactive scoper, five integration steps, interactive cross-chain call-flow stepper, and links to the core spec."
+description: "Chain integration playbook for EEZ: 60-second architecture overview, interactive scoper, six steps from devnet PoC to mainnet, cross-chain flow stepper, and canonical deployments."
 ---
 
 import { IntegrationConfigurator } from '../components/integrate/IntegrationConfigurator'
@@ -7,73 +7,124 @@ import { CrossChainFlowStepper } from '../components/integrate/CrossChainFlowSte
 
 # Integrate a chain
 
-Any chain can join EEZ, however it is sequenced. Each chain keeps its own transaction format, block construction, published data format, and proof system. It settles state changes through the `EEZ` contract on L1, so the chain follows L1 history — an L1 reorg may require an L2 reorg.
+Any chain can join the Ethereum Economic Zone (EEZ), however it is sequenced. Your chain keeps its own sequencer, transaction format, block construction, governance, and token — while letting users call Ethereum mainnet contracts synchronously through local cross-chain proxies and receive the return value in the same transaction.
 
-Cross-chain calls are optional but central to EEZ. You can start with settlement only and add synchronous calls incrementally. Full ABI structs, hash formulas, and deployment scripts live in [`eez-core-protocol`](https://github.com/eez-association/eez-core-protocol).
+Start with the 60-second overview, scope your stack with the interactive checklist, then follow the six playbook steps from devnet PoC to mainnet. Full ABI structs, hash formulas, and deployment scripts live in [`eez-core-protocol`](https://github.com/eez-association/eez-core-protocol).
+
+## How it works in 60 seconds
+
+Joining EEZ is **additive**. An existing chain does not have to replace its sequencer or its existing native bridge; it adds an EEZ state root on L1 and a synchronous execution lane that settles within one L1 block.
+
+| Part of your stack | What stays yours | What you add for EEZ |
+| --- | --- | --- |
+| **Sequencer & ordering** | Local block production, mempool, fee policy, governance | Optional sync-slot coordination with an off-chain composer |
+| **Execution node** | EVM / execution client, state DB, RPCs | `EEZL2` contract + protected `SYSTEM_ADDRESS` + follow executed L1 updates (including L1 reorgs) |
+| **Proof systems** | Your choice of verifiers, keys, and per-rollup threshold | Proof or attestation ready within the same L1 block (start with ECDSA for PoC, upgrade to ZK / multi-prover) |
+| **L1 settlement** | Any existing native bridge or fault-proof settlement | One `Rollup` contract registered on `EEZ`, posting state batches with execution entries |
+| **Applications** | Normal Solidity interfaces and user flows | Opt-in calls through local `CrossChainProxy` contracts (no async bridge wrapper) |
+
+Every joining chain meets **two core rules**:
+1. **Verify state within one L1 block.** Synchronous cross-chain calls work only in an L1 block where your rollup's batch is verified on `EEZ`. Each rollup configures its own proof systems and approval threshold (with no protocol-level floor — a threshold may be `0`).
+2. **Follow Ethereum L1 history.** Because your EEZ root settles on L1, an L1 reorg may require an L2 reorg to stay aligned with executed L1 updates.
+
+:::note
+**Order of operations (live chain vs. new chain):** Calling `EEZ.registerRollup` on L1 assigns your `rollupId` first, and `EEZL2` on your chain is initialized with that `rollupId`. For a **new chain**, register on L1 and bake `EEZL2` into genesis. For an **existing live chain**, register on L1 first and schedule a coordinated upgrade / hard fork to deploy `EEZL2` and enable `SYSTEM_ADDRESS` execution rules.
+:::
+
+## Scope your integration
+
+Pick your chain type, proof system, and target stage to generate a tailored component checklist you can copy straight into an issue or RFC.
 
 <IntegrationConfigurator />
 
-## Five integration steps
+## Integration playbook
+
+Cross-chain calls are optional at first — start with root-only settlement and add synchronous calls incrementally. Want to see the reference stack running before modifying your own client? Start with the four **Rollup Operators** walkthroughs on [build.eez.io](https://build.eez.io) using `ECDSAProofSystem` on a local devnet or Chiado.
 
 ::::steps
 
 ### 1. Register on L1
-Deploy the proof systems your chain accepts (or pick existing ones — `ECDSAProofSystem` is the fastest option for early testing). Deploy `Rollup` (or a custom `IRollupContract`) configured with those proof systems, their `vkey`s, and a per-rollup approval threshold (there is no protocol-level floor — a rollup’s threshold may be `0`). Then call `EEZ.registerRollup(rollupContract, initialRoot)` (permissionless on `EEZ`; owned-caller on the reference `Rollup`) to receive your `rollupId` (`0` is reserved for L1).
+**Goal:** Give your chain an on-chain identity (`rollupId`) and define which proof systems can approve its state updates.
 
-For an existing chain, `initialRoot` marks where EEZ integration begins; a block hash is a natural choice.
+Deploy your own isolated `EEZ` contract for a private devnet, or register directly on a [canonical deployment](#canonical-deployments). Deploy the proof systems your chain accepts (`ECDSAProofSystem` is the fastest option for an early PoC), then deploy `Rollup` (or a custom `IRollupContract`) configured with those proof systems, their `vkey`s, and a per-rollup approval threshold (there is no protocol-level floor — a rollup's threshold may be `0`).
+
+Call `EEZ.registerRollup(rollupContract, initialRoot)` (permissionless on `EEZ`; owned-caller on the reference `Rollup`) to receive your `rollupId` (`0` is reserved for L1). For an existing chain, `initialRoot` marks where EEZ integration begins; a block hash is a natural choice.
 
 ### 2. Submit state updates
-Send batches to `EEZ.postAndVerifyBatch`. Each update specifies `currentRoot`, `newRoot`, and any `etherDelta` on your chain’s isolated L1 ETH balance. A batch can advance the root with no cross-chain calls at all.
+**Goal:** Advance your chain's EEZ state root on L1 within the same L1 block.
+
+Send batches to `EEZ.postAndVerifyBatch`. Each update specifies `currentRoot`, `newRoot`, and any `etherDelta` on your chain's isolated L1 ETH balance. A batch can advance the root with no cross-chain calls at all — ideal for Stage 1 verification before wiring cross-chain execution.
 
 :::note
-**Verified ≠ executed.** `postAndVerifyBatch` makes entries available for the current L1 block only; an entry stays unexecuted if no user transaction reaches the proxy. A newer batch replaces that rollup’s own queues (entries in other rollups’ queues that touch this rollup stay consumable while their `currentRoot` pins match live roots). Follow only executed L1 updates.
+**Verified ≠ executed.** `postAndVerifyBatch` makes execution entries available for the current L1 block only; an entry stays unexecuted if no user transaction reaches the proxy. A newer batch replaces that rollup's own queues (entries in other rollups' queues that touch this rollup stay consumable while their `currentRoot` pins match live roots). Follow only executed L1 updates.
 :::
 
 ### 3. Publish your chain data
+**Goal:** Make your L2 block data reconstructible from L1 so nodes, derivers, and proof systems agree on state transitions.
+
 We recommend the [EEZ message format](https://github.com/eez-association/eez-core-protocol/blob/main/docs/blobs/BLOB_FORMAT_SPEC.md), which the reference composer and proof systems use, published in blobs, calldata, or both. Any custom format works too, as long as it preserves nested call order, results, and reverts and your composer, node, and proof systems agree on how to read it.
 
 ### 4. Add cross-chain calls
-Applications call a local **cross-chain proxy** representing a contract on another chain using its normal interface. On L2, we strongly recommend deploying [`EEZL2`](https://github.com/eez-association/eez-core-protocol/blob/main/src/L2/EEZL2.sol) configured with your `rollupId`, a protected `SYSTEM_ADDRESS` (gated by node execution, derivation, and proving rules for `loadExecutionTable` and `executeIncomingCrossChainCall`), and enough ETH for incoming value transfers.
+**Goal:** Enable synchronous L2 → L1 and L1 → L2 calls through local cross-chain proxies.
 
-For calls starting on L1, the batch must be verified **before** the user’s L1 transaction reaches the proxy in the same block — either via an **L1 block builder bundle** or via a posting contract implementing **`IMetaCrossChainReceiver`** (`executeMetaCrossChainTransactions()` consumes remaining immediate entries in the same transaction).
+Applications call a local **cross-chain proxy** representing a contract on another chain using its normal interface. On L2, deploy [`EEZL2`](https://github.com/eez-association/eez-core-protocol/blob/main/src/L2/EEZL2.sol) configured with your `rollupId`, a protected `SYSTEM_ADDRESS` (gated by node execution, derivation, and proving rules for `loadExecutionTable` and `executeIncomingCrossChainCall`), and enough pooled ETH for incoming value transfers.
 
-::::
-
-<CrossChainFlowStepper />
-
-::::steps
+Wire an off-chain **composer** to simulate cross-chain calls and build the paired L1 and L2 execution entries. For calls starting on L1, the batch must be verified **before** the user's L1 transaction reaches the proxy in the same block — either via an **L1 block builder bundle** or via a posting contract implementing **`IMetaCrossChainReceiver`** (`executeMetaCrossChainTransactions()` consumes remaining immediate entries in the same transaction).
 
 ### 5. Set what your proof systems check
-On L1, `EEZ` verifies proofs and checks each entry’s `rollingHash`, but **never reads your published blobs or calldata**. Your proof systems must approve a batch (`verify(proof, publicInputsHash)`) only when all five hold:
+**Goal:** Ensure your verifiers prove every cross-chain invariant that L1 does not inspect directly.
 
-1. **Published data is valid** under your chain’s rules.
+On L1, `EEZ` verifies proofs and checks each entry's `rollingHash`, but **never reads your published blobs or calldata**. Your proof systems must approve a batch (`verify(proof, publicInputsHash)`) only when all five hold:
+
+1. **Published data is valid** under your chain's rules.
 2. **New roots and ETH deltas are true** when executing that data from `currentRoot`.
 3. **L1 entries match the published calls** (same callers, targets, order, ETH amounts, and return/revert bytes; mutable entries list every involved rollup in `rollupUpdates`; static entries pin `expectedRoots`).
 4. **L2 entries and deliveries match L1** (`loadExecutionTable` and `executeIncomingCrossChainCall` correspond exactly to L1 entries).
 5. **Unsupported call patterns are absent** (rejected by both composer and proof systems).
 
-Also bind each proof approval to your deployment — via a deployment-specific `vkey` or [`IRollupContract.getCustomData`](https://github.com/eez-association/eez-core-protocol/blob/main/src/rollupContract/Rollup.sol) — since `publicInputsHash` omits chain IDs and the `EEZ` contract address. Govern `Rollup` owner (`setRoot`, `setThreshold(0)`, verifier swaps) and `ProxyAdmin` keys before holding real value.
-
 For the exact two-stage `publicInputsHash` formula (shared batch inputs, per-proof-system `vkey` accumulation, and omitted fields), see [`MULTI_PROVER_SPEC.md`](https://github.com/eez-association/eez-core-protocol/blob/main/docs/MULTI_PROVER_SPEC.md#per-ps-publicinputshash-two-stage).
+
+### 6. Harden for mainnet
+**Goal:** Close every operational and security gate before holding real value on Ethereum mainnet.
+
+- **Upgrade proof systems & threshold:** Replace or augment `ECDSAProofSystem` with your production proof system(s) and set a non-zero approval threshold that enforces all five checks in Step 5.
+- **Bind deployment domain:** Bind every proof approval to your specific deployment — via a deployment-specific `vkey` or a custom [`IRollupContract.getCustomData`](https://github.com/eez-association/eez-core-protocol/blob/main/src/interfaces/IRollup.sol) (the reference `Rollup` returns only L1 timestamp and block hash) — since `publicInputsHash` omits chain IDs and the `EEZ` contract address.
+- **Lock down governance keys:** Move `Rollup` owner (`setRoot`, `setThreshold`, verifier swaps) and `ProxyAdmin` keys behind production multisig / governance controls.
+- **Verify operational limits:** Fund `EEZL2` pooled ETH for incoming value transfers, test L1 reorg reconciliation on testnet, and review [`CAVEATS.md`](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md) and [Integration boundaries](/integration-boundaries).
 
 ::::
 
-## What EEZ fixes vs. what stays yours
+## Trace a cross-chain call
 
-EEZ keeps its L1 boundary intentionally small so chains with different stacks can compose without sharing a codebase:
+Step through how paired L1 and L2 execution entries move across the composer, `EEZ`, and `EEZL2` — including static reads, reverts, and missed-transaction expiration.
 
-- **What EEZ fixes:** The L1 entry points (`registerRollup`, `postAndVerifyBatch`), the `IRollupContract` interface, and the `publicInputsHash` and `rollingHash` checks that prove a cross-chain execution matched its simulation.
-- **What stays yours:** Your sequencer, L2 transaction format, proof system(s) and per-rollup approval threshold (with no protocol-level floor; may be `0`), and published data format. On L2, `EEZL2` is recommended for standard contract compatibility, and for L1 → L2 calls you choose between builder bundles and `IMetaCrossChainReceiver` meta-transactions.
+<CrossChainFlowStepper />
 
-## Reference implementations
+## Canonical deployments
+
+Register on an existing `EEZ` deployment to compose with Ethereum L1 (and other rollups on the same registry), or deploy your own `EEZ` instance for private devnet staging.
+
+| Environment | L1 network | `EEZ` L1 contract | Core commit | Live reference rollup |
+| --- | --- | --- | --- | --- |
+| **Ethereum mainnet** (stress test) | Ethereum | [`0x4b2760f84b83d6b3829e30a7573b0172b6d6402c`](https://etherscan.io/address/0x4b2760f84b83d6b3829e30a7573b0172b6d6402c) | [`84a5b52`](https://github.com/eez-association/eez-core-protocol/tree/84a5b5207880f192a6a5896cbfe0bac5249db47f) | [RollupX](https://rollupx.eez.dev/dashboard) (`rollupId = 2`) |
+| **Chiado testnet** | Chiado | [`0x6258189d3a04eb31a196a8931077dfe001a9f6fd`](https://gnosis-chiado.blockscout.com/address/0x6258189d3a04eb31a196a8931077dfe001a9f6fd) | [`84a5b52`](https://github.com/eez-association/eez-core-protocol/tree/84a5b5207880f192a6a5896cbfe0bac5249db47f) | [EEZ-X Testnet](https://eez.dev/dashboard) (`rollupId = 2`) |
+| **Private devnet** | Local / custom L1 | Self-deployed via [`deployment/README.md`](https://github.com/eez-association/eez-core-protocol/blob/main/deployment/README.md#individual-deployments) | [`main`](https://github.com/eez-association/eez-core-protocol) | Local `eez-rollup0` / `eez-rollupX` |
+
+:::note
+**Current status:** RollupX on Ethereum mainnet is an active stress-test deployment using `ECDSAProofSystem` (`Bridge` and `src/periphery/` fixtures are test-only and outside protocol audit scope). Calls between two L2s are ongoing work — neither reference rollup supports L2-to-L2 calls yet.
+:::
+
+## Reference implementations & support
 
 - **[`eez-rollup0`](https://github.com/eez-association/eez-rollup0):** baseline L2-to-L1 and L1-to-L2 calls.
 - **[`eez-rollupX`](https://github.com/eez-association/eez-rollupX):** wider call patterns, including nested calls, callbacks, read-only (`STATICCALL`) calls, and reverted calls.
-
-Calls between two L2s are ongoing work — neither reference rollup supports L2-to-L2 calls yet.
+- **[Rollup Operators on `build.eez.io`](https://build.eez.io):** hands-on labs to run the reference stack locally, deploy contracts, and test cross-chain calls.
+- **Working with the EEZ team:** Planning a PoC or architecture review? Reach out via [Get in touch](https://tally.so/r/NpLo4l) to scope your stack (existing chain vs. new chain, proof path, and timeline) with the protocol engineers.
 
 ## Go deeper
 
-- **Specification on GitHub:** [`eez-core-protocol/docs`](https://github.com/eez-association/eez-core-protocol/tree/main/docs) (core protocol, entries, static entries, multi-prover, events, message format, limits, integration boundaries)
-- **Deployment guide:** [`deployment/README.md`](https://github.com/eez-association/eez-core-protocol/blob/main/deployment/README.md#individual-deployments)
+- **Protocol walkthrough:** [Follow one call end to end](/eez-walkthrough)
+- **Specification on GitHub:** [`eez-core-protocol/docs`](https://github.com/eez-association/eez-core-protocol/tree/main/docs) (core protocol, entries, static entries, multi-prover, events, message format, call-pattern limits)
+- **External obligations:** [Integration boundaries](/integration-boundaries)
+- **Deployment scripts:** [`deployment/README.md`](https://github.com/eez-association/eez-core-protocol/blob/main/deployment/README.md#individual-deployments)
 - **Caveats before shipping:** [`docs/CAVEATS.md`](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md) · [Build a dApp](/build-a-dapp)
