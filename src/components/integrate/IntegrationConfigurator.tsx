@@ -147,7 +147,7 @@ export function IntegrationConfigurator() {
       stepNum: 'Step 4',
       stepHref: '#4-add-cross-chain-calls',
       addedBadge: 'In progress',
-      what: 'Calls between two L2s: both chains must agree on the calls and their results, and approve the resulting state changes.',
+      what: 'Calls between two L2s: both chains must agree on the calls and their results, and approve the resulting state changes. Supported in the core contracts, in progress in the reference rollups.',
       repoLabel: 'CORE_PROTOCOL_SPEC.md',
       repoHref: `${REPO}/docs/CORE_PROTOCOL_SPEC.md`,
     })
