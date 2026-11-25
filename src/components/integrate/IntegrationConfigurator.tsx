@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 type ChainType = 'existing' | 'new'
-type Stage = 's1' | 's2' | 's3'
+type Stage = 's1' | 's2' | 's3' | 's4'
 type ProverMode = 'ecdsa' | 'zk'
 
 interface Row {
@@ -63,6 +63,9 @@ export function IntegrationConfigurator() {
   const initialRootPhrase =
     chain === 'existing' ? 'initialRoot = starting block hash' : 'genesis initialRoot'
 
+  // Stage 4 (L2↔L2) builds on the stage 3 checklist and adds one in-progress row.
+  const base: Stage = stage === 's4' ? 's3' : stage
+
   const rows: Row[] = [
     {
       id: 'register',
@@ -79,13 +82,13 @@ export function IntegrationConfigurator() {
     {
       id: 'batches',
       layer: 'L1',
-      stepNum: stage === 's3' ? 'Step 2 & 4' : 'Step 2',
-      stepHref: stage === 's3' ? '#4-add-cross-chain-calls' : '#2-submit-state-updates',
-      addedBadge: stage === 's2' ? '+ Stage 2' : stage === 's3' ? '+ Stage 3' : undefined,
+      stepNum: base === 's3' ? 'Step 2 & 4' : 'Step 2',
+      stepHref: base === 's3' ? '#4-add-cross-chain-calls' : '#2-submit-state-updates',
+      addedBadge: base === 's2' ? '+ Stage 2' : base === 's3' ? '+ Stage 3' : undefined,
       what:
-        stage === 's1'
+        base === 's1'
           ? 'Post root-only batches via EEZ.postAndVerifyBatch (currentRoot, newRoot, etherDelta).'
-          : stage === 's2'
+          : base === 's2'
             ? 'Post batches carrying L2→L1 ExecutionEntry items via EEZ.postAndVerifyBatch.'
             : 'Verify batch before the user L1 tx in the same block via builder bundle or IMetaCrossChainReceiver.',
       repoLabel: 'src/EEZ.sol',
@@ -94,15 +97,15 @@ export function IntegrationConfigurator() {
     {
       id: 'l2',
       layer: 'L2',
-      stepNum: stage === 's1' ? 'Step 2' : 'Step 4',
-      stepHref: stage === 's1' ? '#2-submit-state-updates' : '#4-add-cross-chain-calls',
-      addedBadge: stage === 's2' ? '+ Stage 2' : stage === 's3' ? '+ Stage 3' : undefined,
+      stepNum: base === 's1' ? 'Step 2' : 'Step 4',
+      stepHref: base === 's1' ? '#2-submit-state-updates' : '#4-add-cross-chain-calls',
+      addedBadge: base === 's2' ? '+ Stage 2' : base === 's3' ? '+ Stage 3' : undefined,
       what:
-        stage === 's1'
+        base === 's1'
           ? chain === 'existing'
             ? 'Follow executed L1 updates and reconcile EEZ finality with your existing L1 reorg path.'
             : 'Follow executed L1 updates and handle L1 reorgs from genesis.'
-          : stage === 's2'
+          : base === 's2'
             ? 'Deploy EEZL2 with rollupId + protected SYSTEM_ADDRESS for loadExecutionTable.'
             : 'Deploy EEZL2 + loadExecutionTable + executeIncomingCrossChainCall + fund pooled ETH for incoming value.',
       repoLabel: 'src/L2/EEZL2.sol',
@@ -113,11 +116,11 @@ export function IntegrationConfigurator() {
       layer: 'Off-chain',
       stepNum: 'Step 3',
       stepHref: '#3-publish-your-chain-data',
-      addedBadge: stage === 's2' ? '+ Stage 2' : stage === 's3' ? '+ Stage 3' : undefined,
+      addedBadge: base === 's2' ? '+ Stage 2' : base === 's3' ? '+ Stage 3' : undefined,
       what:
-        stage === 's1'
+        base === 's1'
           ? 'Publish DA (EEZ blob format or custom) + batch poster + proof system(s).'
-          : stage === 's2'
+          : base === 's2'
             ? 'Composer (simulate L2→L1 + build entries) + DA publisher + same-block proving.'
             : 'Bidirectional composer (L2→L1 & L1→L2 entries) + DA publisher + same-block proving.',
       repoLabel: 'EXECUTION_ENTRY_SPEC.md',
@@ -137,8 +140,23 @@ export function IntegrationConfigurator() {
     },
   ]
 
+  if (stage === 's4') {
+    rows.push({
+      id: 'l2l2',
+      layer: 'L2',
+      stepNum: 'Step 4',
+      stepHref: '#4-add-cross-chain-calls',
+      addedBadge: 'In progress',
+      what: 'Calls between two L2s: both chains must agree on the calls and their results, and approve the resulting state changes.',
+      repoLabel: 'CORE_PROTOCOL_SPEC.md',
+      repoHref: `${REPO}/docs/CORE_PROTOCOL_SPEC.md`,
+    })
+  }
+
   const note =
-    chain === 'existing' && prover === 'ecdsa'
+    stage === 's4'
+      ? 'L2↔L2 calls are in progress: eez-rollupX and eez-rollup0 support L2→L1 and L1→L2 today. Scope stages 1 to 3 now and add L2↔L2 when it lands.'
+      : chain === 'existing' && prover === 'ecdsa'
       ? 'Existing L2 + ECDSA: pin initialRoot to your starting block hash, plan L1 reorg reconciliation, and govern Rollup / ProxyAdmin keys before production.'
       : chain === 'existing'
         ? 'Existing L2 + ZK: pin initialRoot to your starting block hash and bind chain IDs + EEZ address via vkey or getCustomData().'
@@ -147,12 +165,12 @@ export function IntegrationConfigurator() {
           : 'New rollup + ZK: bind L1/L2 chain IDs and EEZ address via deployment-specific vkey or getCustomData() before launch.'
 
   const refRepo =
-    stage === 's3'
+    base === 's3'
       ? { name: 'eez-rollupX', desc: 'nested, static & revert patterns', href: `${ORG}/eez-rollupX` }
       : { name: 'eez-rollup0', desc: 'baseline L2→L1 & L1→L2', href: `${ORG}/eez-rollup0` }
 
   const handleCopy = async () => {
-    const stageLabel = stage === 's1' ? 'Stage 1 · Settlement' : stage === 's2' ? 'Stage 2 · L2→L1' : 'Stage 3 · L1↔L2'
+    const stageLabel = stage === 's1' ? 'Stage 1 · Settlement' : stage === 's2' ? 'Stage 2 · L2→L1' : stage === 's3' ? 'Stage 3 · L1↔L2' : 'Stage 4 · L2↔L2 (in progress)'
     const chainLabel = chain === 'existing' ? 'Existing L2' : 'New rollup'
     const proverLabel = prover === 'ecdsa' ? 'ECDSA (PoC)' : 'ZK / Multi-prover'
     const md = [
@@ -225,6 +243,9 @@ export function IntegrationConfigurator() {
             </button>
             <button type="button" className={`eezi-seg-btn ${stage === 's3' ? 'is-active' : ''}`} aria-pressed={stage === 's3'} onClick={() => setStage('s3')}>
               3 · L1↔L2
+            </button>
+            <button type="button" className={`eezi-seg-btn ${stage === 's4' ? 'is-active' : ''}`} aria-pressed={stage === 's4'} onClick={() => setStage('s4')}>
+              4 · L2↔L2
             </button>
           </div>
         </div>
