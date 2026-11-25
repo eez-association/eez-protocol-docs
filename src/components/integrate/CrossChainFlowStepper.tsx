@@ -2,7 +2,7 @@
 
 import { useId, useState, type KeyboardEvent } from 'react'
 
-type ScenarioId = 'l2-to-l1' | 'l1-to-l2' | 'static' | 'revert'
+type ScenarioId = 'l2-to-l1' | 'l1-to-l2' | 'static' | 'revert' | 'l2-to-l2'
 type OrderingMode = 'builder' | 'metatx'
 type ValueTone = 'ok' | 'muted' | 'warn' | 'danger'
 type ActorId = 'l2' | 'composer' | 'l1'
@@ -30,6 +30,8 @@ interface Step {
   statusTone?: 'ok' | 'warn' | 'danger'
   arrow: FlowArrow
   summary: string
+  /** Overrides the L2 actor label, for flows that involve two rollups. */
+  l2Label?: string
   l2: EntryField[]
   l1: EntryField[]
 }
@@ -284,6 +286,65 @@ const SCENARIOS: Scenario[] = [
       },
     ],
   },
+  {
+    id: 'l2-to-l2',
+    label: 'L2 ↔ L2',
+    repoHref: `${REPO}/CORE_PROTOCOL_SPEC.md`,
+    repoLabel: 'CORE_PROTOCOL_SPEC.md',
+    steps: () => [
+      {
+        num: '01',
+        title: 'Agree',
+        activeActors: ['composer', 'l2'],
+        statusTone: 'warn',
+        l2Label: 'Rollup A · Rollup B',
+        arrow: { from: 'composer', to: 'l2', label: 'both chains agree on the call and its result', tone: 'warn', dashed: true },
+        summary: 'In progress. Contract E on rollup A calls contract F on rollup B. Both chains must agree on the call and its result before anything is posted.',
+        l2: [
+          { k: 'Rollup A', v: 'E calls proxy(F)', tone: 'ok', changed: true },
+          { k: 'Rollup B', v: 'F runs, called by proxy(E, A)', tone: 'ok', changed: true },
+        ],
+        l1: [
+          { k: 'EEZ root[A], root[B]', v: 'oldRoot (pending)', tone: 'muted' },
+          { k: 'status', v: 'Awaiting batch on L1', tone: 'muted' },
+        ],
+      },
+      {
+        num: '02',
+        title: 'Verify both on L1',
+        activeActors: ['composer', 'l1'],
+        statusTone: 'warn',
+        l2Label: 'Rollup A · Rollup B',
+        arrow: { from: 'composer', to: 'l1', label: 'postAndVerifyBatch · one batch lists both rollups', tone: 'warn', dashed: true },
+        summary: 'In progress. One batch lists both rollups. Each is approved under its own rollup contract’s rule, and the entry carries a root update for every rollup involved.',
+        l2: [
+          { k: 'Rollup A', v: 'Awaiting L1', tone: 'muted' },
+          { k: 'Rollup B', v: 'Awaiting L1', tone: 'muted' },
+        ],
+        l1: [
+          { k: 'rollupUpdates', v: '[A, B]  // ascending rollup ID', tone: 'ok', changed: true },
+          { k: 'approval', v: 'A’s rule and B’s rule', tone: 'ok', changed: true },
+        ],
+      },
+      {
+        num: '03',
+        title: 'Follow on both',
+        activeActors: ['l1', 'l2'],
+        statusTone: 'warn',
+        l2Label: 'Rollup A · Rollup B',
+        arrow: { from: 'l1', to: 'l2', label: 'both chains follow the executed update', tone: 'warn', dashed: true },
+        summary: 'In progress. Both chains follow the update that executed on L1. eez-rollupX and eez-rollup0 support L2→L1 and L1→L2 today; calls between two L2s are being built.',
+        l2: [
+          { k: 'Rollup A', v: 'Follows executed L1 event', tone: 'ok', changed: true },
+          { k: 'Rollup B', v: 'Follows executed L1 event', tone: 'ok', changed: true },
+        ],
+        l1: [
+          { k: 'root[A], root[B]', v: 'oldRoot → newRoot', tone: 'ok', changed: true },
+          { k: 'status', v: 'In progress in the reference rollups', tone: 'warn' },
+        ],
+      },
+    ],
+  },
 ]
 
 const NODE_X: Record<ActorId, number> = {
@@ -368,7 +429,7 @@ function SequenceDiagram({ step }: { step: Step }) {
   }
 
   const nodes: Array<{ id: ActorId; label: string; sub: string }> = [
-    { id: 'l2', label: 'L2 · EEZL2', sub: 'Rollup' },
+    { id: 'l2', label: step.l2Label ?? 'L2 · EEZL2', sub: step.l2Label ? 'Two rollups' : 'Rollup' },
     { id: 'composer', label: 'Composer / Prover', sub: 'Off-chain' },
     { id: 'l1', label: 'L1 · EEZ', sub: 'Ethereum' },
   ]
@@ -540,7 +601,7 @@ export function CrossChainFlowStepper() {
         <div className="eezi-entries">
           <div className="eezi-entry-box">
             <div className="eezi-entry-head">
-              <span>L2 · EEZL2</span>
+              <span>{step.l2Label ?? 'L2 · EEZL2'}</span>
               {step.activeActors.includes('l2') && <span className="eezi-live-dot" aria-hidden="true" />}
             </div>
             {step.l2.map((item) => (
