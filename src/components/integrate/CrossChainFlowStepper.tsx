@@ -162,14 +162,26 @@ const SCENARIOS: Scenario[] = [
       },
       {
         num: '03',
-        title: missedTx ? 'Missed tx (expired)' : 'Execute & deliver',
+        title: missedTx ? (ordering === 'builder' ? 'Missed tx (expired)' : 'Missed tx (wiped)') : 'Execute & deliver',
         activeActors: missedTx ? ['l1'] : ['l1', 'l2'],
         statusTone: missedTx ? 'danger' : 'ok',
         arrow: missedTx
-          ? { from: 'l1', to: 'l2', label: 'Alice tx never reached proxy · entry expired', tone: 'danger', dashed: true, broken: true }
+          ? {
+              from: 'l1',
+              to: 'l2',
+              label:
+                ordering === 'builder'
+                  ? 'Alice tx never reached proxy · entry expired'
+                  : 'meta hook skipped proxy(B) · transient table wiped',
+              tone: 'danger',
+              dashed: true,
+              broken: true,
+            }
           : { from: 'l1', to: 'l2', label: 'Alice → proxy(B) · executeIncomingCrossChainCall', tone: 'ok' },
         summary: missedTx
-          ? 'Alice’s tx never reached the proxy in this L1 block. The entry expires unexecuted (Verified ≠ Executed); L1 and L2 both stay at oldRoot.'
+          ? ordering === 'builder'
+            ? 'Alice’s tx never reached the proxy in this L1 block. The queued entry expires unexecuted at block end (Verified ≠ Executed); L1 and L2 both stay at oldRoot.'
+            : 'The meta receiver never called proxy(B) during executeMetaCrossChainTransactions(). EEZ wipes the transient immediate table when postAndVerifyBatch returns (Verified ≠ Executed); L1 and L2 both stay at oldRoot.'
           : 'Alice calls proxy(B) → EEZ credits +v ETH, commits newRoot, returns B’s data in the same tx → system address delivers on EEZL2.',
         l2: missedTx
           ? [
@@ -182,7 +194,12 @@ const SCENARIOS: Scenario[] = [
             ],
         l1: missedTx
           ? [
-              { k: 'entry', v: 'Expired at block end', tone: 'danger', changed: true },
+              {
+                k: 'entry',
+                v: ordering === 'builder' ? 'Expired at block end' : 'Wiped after postAndVerifyBatch',
+                tone: 'danger',
+                changed: true,
+              },
               { k: 'EEZ root[R]', v: 'oldRoot (unchanged)', tone: 'muted' },
             ]
           : [

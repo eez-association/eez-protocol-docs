@@ -1,10 +1,9 @@
 ---
-description: "High-level guide to integrating a chain with EEZ: interactive scoper, five integration steps, interactive call-flow stepper and publicInputsHash explorer, and links to the core spec."
+description: "High-level guide to integrating a chain with EEZ: interactive scoper, five integration steps, interactive cross-chain call-flow stepper, and links to the core spec."
 ---
 
 import { IntegrationConfigurator } from '../components/integrate/IntegrationConfigurator'
 import { CrossChainFlowStepper } from '../components/integrate/CrossChainFlowStepper'
-import { ProofHashExplorer } from '../components/integrate/ProofHashExplorer'
 
 # Integrate a chain
 
@@ -53,11 +52,11 @@ On L1, `EEZ` verifies proofs and checks each entry’s `rollingHash`, but **neve
 4. **L2 entries and deliveries match L1** (`loadExecutionTable` and `executeIncomingCrossChainCall` correspond exactly to L1 entries).
 5. **Unsupported call patterns are absent** (rejected by both composer and proof systems).
 
-Also bind each proof approval to your deployment — via a deployment-specific `vkey` or `IRollupContract.getCustomData` — since `publicInputsHash` omits chain IDs and the `EEZ` contract address. Govern `Rollup` owner (`setRoot`, `setThreshold(0)`, verifier swaps) and `ProxyAdmin` keys before holding real value.
+Also bind each proof approval to your deployment — via a deployment-specific `vkey` or [`IRollupContract.getCustomData`](https://github.com/eez-association/eez-core-protocol/blob/main/src/rollupContract/Rollup.sol) — since `publicInputsHash` omits chain IDs and the `EEZ` contract address. Govern `Rollup` owner (`setRoot`, `setThreshold(0)`, verifier swaps) and `ProxyAdmin` keys before holding real value.
+
+For the exact two-stage `publicInputsHash` formula (shared batch inputs, per-proof-system `vkey` accumulation, and omitted fields), see [`MULTI_PROVER_SPEC.md`](https://github.com/eez-association/eez-core-protocol/blob/main/docs/MULTI_PROVER_SPEC.md#per-ps-publicinputshash-two-stage).
 
 ::::
-
-<ProofHashExplorer />
 
 ## What EEZ fixes vs. what stays yours
 
