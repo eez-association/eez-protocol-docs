@@ -17,7 +17,7 @@ limitation are expected to pass until that limitation is fixed.
 
 **Decision:** mutable candidate retries are not implemented. Experiments are planned
 to assess whether they are worth implementing; no implementation decision has been
-made. The current support limits are documented in [Caveats](/caveats#delivery-and-execution-semantics).
+made. The current support limits are documented in [Caveats](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md#delivery-and-execution-semantics).
 The proposed hash-validated retry approach and regression checklist below guide
 that evaluation, not committed implementation work.
 

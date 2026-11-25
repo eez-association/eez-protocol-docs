@@ -84,6 +84,35 @@ a:focus-visible, button:focus-visible, input:focus-visible, pre:focus-visible {
   outline-offset: 2px;
 }
 
+/* Top-nav CTA: "Get in touch" — exact match to build.eez.io */
+nav li:has(> a[href^="https://tally.so/"]) {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+nav a[href^="https://tally.so/"] {
+  display: inline-flex !important;
+  align-items: center;
+  height: auto !important;
+  padding: 5px 10px !important;
+  border: 0 !important;
+  border-radius: 4px;
+  background: var(--eez-grad);
+  color: var(--eez-canvas) !important;
+  font-weight: 500 !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+nav a[href^="https://tally.so/"]:hover {
+  color: var(--eez-canvas) !important;
+  filter: brightness(1.08);
+}
+nav a[href^="https://tally.so/"] svg {
+  color: inherit !important;
+  opacity: .6;
+  flex-shrink: 0;
+}
+
 /* Landing page */
 .eez-eyebrow {
   font-family: var(--vocs-font-family-mono);
@@ -220,17 +249,665 @@ a:focus-visible, button:focus-visible, input:focus-visible, pre:focus-visible {
 /* Step titles are flex in Vocs, which splits titles with inline code into columns */
 [data-v-step-title] { display: block; }
 
-/* Top nav: the last item ("Get in touch") is the call-to-action button. Vocs topNav
-   has no button style, so it is matched by its link. Same look as build.eez.io's button. */
-nav li:has(> a[href^="https://tally.so/"]) { display: flex; align-items: center; margin-left: 8px; }
-nav a[href^="https://tally.so/"] {
-  height: auto;
-  padding: 5px 10px;
-  border: 0;
-  border-radius: 4px;
+/* Interactive /integrate widgets — pure-black engineering instrument aesthetic */
+.eezi-shell {
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin-block: 24px;
+  padding: 18px 20px;
+  background: var(--eez-screen);
+  border: 1px solid var(--eez-edge);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.eezi-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
   background: var(--eez-grad);
-  color: var(--eez-canvas);
+}
+
+.eezi-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.eezi-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.eezi-eyebrow {
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  color: var(--eez-green);
+}
+
+.eezi-meta {
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--eez-muted);
+}
+
+.eezi-kbd-hint {
+  color: #6b7485;
+}
+
+.eezi-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  color: var(--eez-green) !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+
+.eezi-link:hover {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
+.eezi-ghost-btn {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--eez-edge);
+  background: var(--eez-canvas);
+  color: #d6dce6;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+
+.eezi-ghost-btn:hover {
+  border-color: #4f4f4f;
+  color: #fff;
+}
+
+.eezi-ghost-btn.is-copied {
+  border-color: rgba(59, 229, 126, .6);
+  background: rgba(59, 229, 126, .12);
+  color: var(--eez-green);
+}
+
+/* Segmented controls */
+.eezi-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.eezi-control-col {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.eezi-control-col--wide {
+  grid-column: 1 / -1;
+}
+
+.eezi-control-label {
+  font-family: var(--vocs-font-family-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--eez-muted);
+}
+
+.eezi-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid #262626;
+  background: var(--eez-canvas);
+}
+
+.eezi-seg--fill {
+  display: flex;
+  width: 100%;
+}
+
+.eezi-seg--fill .eezi-seg-btn {
+  flex: 1 1 0;
+  text-align: center;
+}
+
+.eezi-seg-btn {
+  appearance: none;
+  cursor: pointer;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #b7c0ce;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  line-height: 1.25;
+  white-space: nowrap;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+.eezi-seg-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, .04);
+}
+
+.eezi-seg-btn.is-active {
+  background: rgba(59, 229, 126, .14);
+  border-color: rgba(59, 229, 126, .65);
+  color: #fff;
+}
+
+.eezi-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+}
+
+.eezi-inline-opts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.eezi-fault-btn {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 5px 11px;
+  border-radius: 9px;
+  border: 1px solid #2c2c2c;
+  background: var(--eez-canvas);
+  color: #c9cfda;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+.eezi-fault-btn:hover {
+  border-color: rgba(255, 138, 128, .45);
+  color: #fff;
+}
+
+.eezi-fault-btn.is-on {
+  border-color: rgba(255, 138, 128, .65);
+  background: rgba(255, 138, 128, .12);
+  color: #ffb4ad;
+}
+
+.eezi-fault-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4e5663;
+  transition: background .15s ease;
+}
+
+.eezi-fault-btn.is-on .eezi-fault-dot {
+  background: #ff8a80;
+}
+
+/* Scoper table */
+.eezi-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #242424;
+  border-radius: 10px;
+  background: var(--eez-canvas);
+  overflow: hidden;
+}
+
+.eezi-row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px 14px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #1a1a1a;
+  font-size: 13.5px;
+}
+
+.eezi-row:last-child {
+  border-bottom: 0;
+}
+
+.eezi-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.eezi-layer-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid #2b2b2b;
+  background: #141414;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #d6dce6;
+}
+
+.eezi-layer-badge--l1 {
+  border-color: rgba(98, 131, 189, .45);
+  color: #9dc0f5;
+}
+
+.eezi-layer-badge--l2 {
+  border-color: rgba(59, 229, 126, .4);
+  color: #7eeea9;
+}
+
+.eezi-layer-badge--prover {
+  border-color: rgba(245, 195, 108, .4);
+  color: #f5c36c;
+}
+
+.eezi-step-anchor {
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11px;
+  color: var(--eez-muted) !important;
+  text-decoration: none !important;
+}
+
+.eezi-step-anchor:hover {
+  color: var(--eez-green) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px;
+}
+
+.eezi-row-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.eezi-row-text {
+  color: #e6ebf2;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
+.eezi-delta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(59, 229, 126, .32);
+  background: rgba(59, 229, 126, .08);
+  font-family: var(--vocs-font-family-mono);
+  font-size: 10.5px;
+  color: var(--eez-green);
+  white-space: nowrap;
+}
+
+.eezi-row-link {
+  padding-top: 2px;
+}
+
+.eezi-scoper-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eezi-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #262626;
+  background: var(--eez-canvas);
+  font-size: 12.5px;
+  line-height: 1.48;
+  color: #c9cfda;
+}
+
+.eezi-callout--warn {
+  border-color: rgba(245, 195, 108, .32);
+  background: rgba(245, 195, 108, .05);
+  color: #e6d6b5;
+}
+
+.eezi-callout--warn svg {
+  color: #f5c36c;
+  margin-top: 2px;
+}
+
+.eezi-ref-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 6px 11px;
+  border-radius: 8px;
+  border: 1px solid #262626;
+  background: var(--eez-canvas);
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  color: var(--eez-muted) !important;
+  text-decoration: none !important;
+  transition: border-color .15s ease;
+}
+
+.eezi-ref-chip:hover {
+  border-color: rgba(59, 229, 126, .55);
+}
+
+.eezi-ref-k {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: .07em;
+  color: var(--eez-muted);
+}
+
+.eezi-ref-v {
+  color: var(--eez-green);
   font-weight: 500;
 }
-nav a[href^="https://tally.so/"]:hover { color: var(--eez-canvas); filter: brightness(1.08); }
-nav a[href^="https://tally.so/"] svg { color: inherit; opacity: .6; }
+
+.eezi-ref-d {
+  color: #b7c0ce;
+}
+
+/* Flow stepper */
+.eezi-steps-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.eezi-step-chip {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #262626;
+  background: var(--eez-canvas);
+  color: var(--eez-muted);
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+.eezi-step-chip:hover {
+  border-color: #4a4a4a;
+  color: #fff;
+}
+
+.eezi-step-chip.is-done {
+  border-color: rgba(59, 229, 126, .35);
+  color: #c9cfda;
+}
+
+.eezi-step-chip.is-active {
+  background: rgba(59, 229, 126, .12);
+  border-color: var(--eez-green);
+  color: #fff;
+}
+
+.eezi-step-chip.is-warn .eezi-step-num {
+  color: #f5c36c;
+}
+
+.eezi-step-chip.is-warn.is-active {
+  background: rgba(245, 195, 108, .12);
+  border-color: #f5c36c;
+}
+
+.eezi-step-chip.is-danger .eezi-step-num {
+  color: #ff8a80;
+}
+
+.eezi-step-chip.is-danger {
+  border-color: rgba(255, 138, 128, .4);
+}
+
+.eezi-step-chip.is-danger.is-active {
+  background: rgba(255, 138, 128, .13);
+  border-color: #ff8a80;
+}
+
+.eezi-step-num {
+  color: var(--eez-green);
+  font-weight: 600;
+}
+
+.eezi-diagram-wrap {
+  padding: 10px 12px 6px;
+  border-radius: 10px;
+  border: 1px solid #222;
+  background: var(--eez-canvas);
+}
+
+.eezi-diagram-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 110px;
+}
+
+.eezi-flow-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eezi-summary {
+  margin: 0 !important;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #e2e7f0;
+}
+
+.eezi-entries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.eezi-entry-box {
+  border-radius: 9px;
+  border: 1px solid #242424;
+  background: #0d0d0d;
+  overflow: hidden;
+}
+
+.eezi-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 11px;
+  background: var(--eez-chrome);
+  border-bottom: 1px solid #242424;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.eezi-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--eez-green);
+}
+
+.eezi-live-dot.is-danger {
+  background: #ff8a80;
+}
+
+.eezi-entry-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 42%) 1fr;
+  gap: 8px;
+  padding: 8px 11px;
+  border-bottom: 1px solid #1a1a1a;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  line-height: 1.42;
+}
+
+.eezi-entry-row.is-changed {
+  background: rgba(255, 255, 255, .02);
+}
+
+.eezi-entry-row:last-child {
+  border-bottom: 0;
+}
+
+.eezi-entry-k {
+  color: var(--eez-muted);
+  overflow-wrap: anywhere;
+}
+
+.eezi-entry-v {
+  overflow-wrap: anywhere;
+}
+
+.eezi-val--ok {
+  color: var(--eez-green);
+}
+
+.eezi-val--muted {
+  color: #9aa3b3;
+}
+
+.eezi-val--warn {
+  color: #f5c36c;
+}
+
+.eezi-val--danger {
+  color: #ff8a80;
+}
+
+.eezi-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 2px;
+}
+
+.eezi-nav-btn {
+  appearance: none;
+  cursor: pointer;
+  min-height: 32px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--eez-edge);
+  background: var(--eez-chrome);
+  color: #fff;
+  font-family: var(--vocs-font-family-mono);
+  font-size: 11.5px;
+  transition: border-color .15s ease;
+}
+
+.eezi-nav-btn:hover:not(:disabled) {
+  border-color: var(--eez-green);
+}
+
+.eezi-nav-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 820px) {
+  .eezi-controls {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  .eezi-shell {
+    padding: 15px 14px;
+  }
+  .eezi-seg-btn {
+    white-space: normal;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+  .eezi-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .eezi-row-meta {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  .eezi-entries,
+  .eezi-entry-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .eezi-kbd-hint {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eezi-ghost-btn,
+  .eezi-seg-btn,
+  .eezi-fault-btn,
+  .eezi-fault-dot,
+  .eezi-step-chip,
+  .eezi-nav-btn,
+  .eezi-ref-chip {
+    transition: none;
+  }
+}
+

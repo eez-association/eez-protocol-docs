@@ -6,7 +6,8 @@ import { join } from 'node:path'
 
 const origin = 'https://docs.eez.io'
 const output = 'dist/public'
-const routes = ['/', '/core-protocol-spec', '/blobs/blob-format-spec']
+const routes = ['/', '/eez-walkthrough', '/integrate-a-chain', '/build-a-dapp', '/build-with-ai', '/core-protocol-spec']
+const agentMdRoutes = ['/integrate-a-chain.md', '/build-a-dapp.md', '/eez-walkthrough.md', '/SKILL.md']
 
 function isFile(file) {
   return statSync(file, { throwIfNoEntry: false })?.isFile() ?? false
@@ -38,4 +39,9 @@ for (const route of routes) {
     assert.ok(resolveFile(url.pathname), `${route}: missing local target ${url.pathname}`)
   }
   console.log(`Checked ${route}: canonical, previews and ${urls.length} local URLs`)
+}
+
+for (const mdRoute of agentMdRoutes) {
+  assert.ok(isFile(join(output, mdRoute)), `Missing agent markdown artifact: ${mdRoute}`)
+  console.log(`Checked agent artifact ${mdRoute}`)
 }
