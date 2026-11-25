@@ -84,37 +84,33 @@ a:focus-visible, button:focus-visible, input:focus-visible, pre:focus-visible {
   outline-offset: 2px;
 }
 
-/* Top-nav CTA: "Get in touch" gradient pill */
-li:has(> a[href="https://tally.so/r/NpLo4l"]) {
+/* Top-nav CTA: "Get in touch" — exact match to build.eez.io */
+nav li:has(> a[href^="https://tally.so/"]) {
   display: flex;
   align-items: center;
+  margin-left: 8px;
 }
-a[href="https://tally.so/r/NpLo4l"] {
+nav a[href^="https://tally.so/"] {
   display: inline-flex !important;
   align-items: center;
   height: auto !important;
-  padding: 6px 12px !important;
-  margin-left: 4px;
+  padding: 5px 10px !important;
   border: 0 !important;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #8AE5AC 0%, #75B3E3 55%, #9B90FF 100%);
-  color: #0A0A0A !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  line-height: 1.2;
+  border-radius: 4px;
+  background: var(--eez-grad);
+  color: var(--eez-canvas) !important;
+  font-weight: 500 !important;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: filter .15s ease, transform .15s ease;
 }
-a[href="https://tally.so/r/NpLo4l"] svg {
-  color: #0A0A0A !important;
+nav a[href^="https://tally.so/"]:hover {
+  color: var(--eez-canvas) !important;
+  filter: brightness(1.08);
+}
+nav a[href^="https://tally.so/"] svg {
+  color: inherit !important;
+  opacity: .6;
   flex-shrink: 0;
-}
-@media (hover: hover) {
-  a[href="https://tally.so/r/NpLo4l"]:hover {
-    filter: brightness(1.08);
-    transform: translateY(-1px);
-  }
 }
 
 /* Landing page */
