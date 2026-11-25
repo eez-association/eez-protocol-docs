@@ -193,7 +193,7 @@ consumers gate on `lastVerifiedBlock == block.number`. Appends overwrite retaine
   success with empty bytes. Against an honest expected hash, a marker that survives to
   validation causes `RollingHashMismatch`; an ordinary enclosing revert can erase it.
   `ContextResult` preserves the hash across an explicit rollback span. See the
-  [reverted-probe caveat](/caveats#edge-cases). Static lookup retries candidates whose
+  [reverted-probe caveat](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md#edge-cases). Static lookup retries candidates whose
   callback-result hashes mismatch, without advancing a cursor; exhaustion instead
   reverts `ExecutionNotFound`. Same-key alternatives support local writes between reads
   ([STATIC_ENTRY §4.4](/static-entry#44-local-writes-between-identical-static-reads)).
@@ -357,4 +357,4 @@ function setRoot(uint64 rollupId, bytes32 newRoot) external;
 - **Reserved rollup ID:** ID zero identifies L1. Registration starts at one, and batch
   validation rejects zero as a participating rollup ID.
 
-See [Caveats](/caveats) for proof domains, freshness, funding and supported call patterns.
+See [Caveats](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md) for proof domains, freshness, funding and supported call patterns.

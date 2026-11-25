@@ -162,7 +162,7 @@ see [call-pattern limits](/call-pattern-limits).
    `CALL_NOT_FOUND` divergence, so it reverts directly). A reentrant mutable CALL no-match
    instead folds the tag and returns success with empty bytes. Against an honest expected
    hash it causes `RollingHashMismatch` only if the marker survives to validation; an
-   ordinary enclosing revert can erase it. See [the reverted-probe caveat](/caveats#edge-cases).
+   ordinary enclosing revert can erase it. See [the reverted-probe caveat](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md#edge-cases).
 
 **Reverted reentrant call** — `_consumeNestedCall` → `_resolveNestedReentrant`, `success == false`
 row:
@@ -488,7 +488,7 @@ A dependency can nevertheless change without changing the lookup key or callback
 hash. For example, `return gasleft() < 400_000 ? 1 : 2` produces different answers
 under different budgets. In gas-independent mode, two rows with empty callback
 arrays share both the call key and callback hash zero. The first matching row wins.
-This is an [accepted support limit](/caveats): builders must reject or restructure
+This is an [accepted support limit](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md): builders must reject or restructure
 traces whose required outcomes cannot be selected.
 
 Candidate retries spend gas even when results are gas-insensitive. A stale candidate

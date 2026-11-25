@@ -1,0 +1,80 @@
+---
+description: "High-level guide to integrating a chain with EEZ: interactive scoper, five integration steps, interactive call-flow stepper and publicInputsHash explorer, and links to the core spec."
+---
+
+import { IntegrationConfigurator } from '../components/integrate/IntegrationConfigurator'
+import { CrossChainFlowStepper } from '../components/integrate/CrossChainFlowStepper'
+import { ProofHashExplorer } from '../components/integrate/ProofHashExplorer'
+
+# Integrate a chain
+
+Any chain can join EEZ, however it is sequenced. Each chain keeps its own transaction format, block construction, published data format, and proof system. It settles state changes through the `EEZ` contract on L1, so the chain follows L1 history — an L1 reorg may require an L2 reorg.
+
+Cross-chain calls are optional but central to EEZ. You can start with settlement only and add synchronous calls incrementally. Full ABI structs, hash formulas, and deployment scripts live in [`eez-core-protocol`](https://github.com/eez-association/eez-core-protocol).
+
+<IntegrationConfigurator />
+
+## Five integration steps
+
+::::steps
+
+### 1. Register on L1
+Deploy the proof systems your chain accepts (or pick existing ones — `ECDSAProofSystem` is the fastest option for early testing). Deploy `Rollup` (or a custom `IRollupContract`) configured with those proof systems, their `vkey`s, and a per-rollup approval threshold (there is no protocol-level floor — a rollup’s threshold may be `0`). Then call `EEZ.registerRollup(rollupContract, initialRoot)` (permissionless on `EEZ`; owned-caller on the reference `Rollup`) to receive your `rollupId` (`0` is reserved for L1).
+
+For an existing chain, `initialRoot` marks where EEZ integration begins; a block hash is a natural choice.
+
+### 2. Submit state updates
+Send batches to `EEZ.postAndVerifyBatch`. Each update specifies `currentRoot`, `newRoot`, and any `etherDelta` on your chain’s isolated L1 ETH balance. A batch can advance the root with no cross-chain calls at all.
+
+:::note
+**Verified ≠ executed.** `postAndVerifyBatch` makes entries available for the current L1 block only; an entry stays unexecuted if no user transaction reaches the proxy. A newer batch replaces that rollup’s own queues (entries in other rollups’ queues that touch this rollup stay consumable while their `currentRoot` pins match live roots). Follow only executed L1 updates.
+:::
+
+### 3. Publish your chain data
+We recommend the [EEZ message format](https://github.com/eez-association/eez-core-protocol/blob/main/docs/blobs/BLOB_FORMAT_SPEC.md), which the reference composer and proof systems use, published in blobs, calldata, or both. Any custom format works too, as long as it preserves nested call order, results, and reverts and your composer, node, and proof systems agree on how to read it.
+
+### 4. Add cross-chain calls
+Applications call a local **cross-chain proxy** representing a contract on another chain using its normal interface. On L2, we strongly recommend deploying [`EEZL2`](https://github.com/eez-association/eez-core-protocol/blob/main/src/L2/EEZL2.sol) configured with your `rollupId`, a protected `SYSTEM_ADDRESS` (gated by node execution, derivation, and proving rules for `loadExecutionTable` and `executeIncomingCrossChainCall`), and enough ETH for incoming value transfers.
+
+For calls starting on L1, the batch must be verified **before** the user’s L1 transaction reaches the proxy in the same block — either via an **L1 block builder bundle** or via a posting contract implementing **`IMetaCrossChainReceiver`** (`executeMetaCrossChainTransactions()` consumes remaining immediate entries in the same transaction).
+
+::::
+
+<CrossChainFlowStepper />
+
+::::steps
+
+### 5. Set what your proof systems check
+On L1, `EEZ` verifies proofs and checks each entry’s `rollingHash`, but **never reads your published blobs or calldata**. Your proof systems must approve a batch (`verify(proof, publicInputsHash)`) only when all five hold:
+
+1. **Published data is valid** under your chain’s rules.
+2. **New roots and ETH deltas are true** when executing that data from `currentRoot`.
+3. **L1 entries match the published calls** (same callers, targets, order, ETH amounts, and return/revert bytes; mutable entries list every involved rollup in `rollupUpdates`; static entries pin `expectedRoots`).
+4. **L2 entries and deliveries match L1** (`loadExecutionTable` and `executeIncomingCrossChainCall` correspond exactly to L1 entries).
+5. **Unsupported call patterns are absent** (rejected by both composer and proof systems).
+
+Also bind each proof approval to your deployment — via a deployment-specific `vkey` or `IRollupContract.getCustomData` — since `publicInputsHash` omits chain IDs and the `EEZ` contract address. Govern `Rollup` owner (`setRoot`, `setThreshold(0)`, verifier swaps) and `ProxyAdmin` keys before holding real value.
+
+::::
+
+<ProofHashExplorer />
+
+## What EEZ fixes vs. what stays yours
+
+EEZ keeps its L1 boundary intentionally small so chains with different stacks can compose without sharing a codebase:
+
+- **What EEZ fixes:** The L1 entry points (`registerRollup`, `postAndVerifyBatch`), the `IRollupContract` interface, and the `publicInputsHash` and `rollingHash` checks that prove a cross-chain execution matched its simulation.
+- **What stays yours:** Your sequencer, L2 transaction format, proof system(s) and per-rollup approval threshold (with no protocol-level floor; may be `0`), and published data format. On L2, `EEZL2` is recommended for standard contract compatibility, and for L1 → L2 calls you choose between builder bundles and `IMetaCrossChainReceiver` meta-transactions.
+
+## Reference implementations
+
+- **[`eez-rollup0`](https://github.com/eez-association/eez-rollup0):** baseline L2-to-L1 and L1-to-L2 calls.
+- **[`eez-rollupX`](https://github.com/eez-association/eez-rollupX):** wider call patterns, including nested calls, callbacks, read-only (`STATICCALL`) calls, and reverted calls.
+
+Calls between two L2s are ongoing work — neither reference rollup supports L2-to-L2 calls yet.
+
+## Go deeper
+
+- **Specification on GitHub:** [`eez-core-protocol/docs`](https://github.com/eez-association/eez-core-protocol/tree/main/docs) (core protocol, entries, static entries, multi-prover, events, message format, limits, integration boundaries)
+- **Deployment guide:** [`deployment/README.md`](https://github.com/eez-association/eez-core-protocol/blob/main/deployment/README.md#individual-deployments)
+- **Caveats before shipping:** [`docs/CAVEATS.md`](https://github.com/eez-association/eez-core-protocol/blob/main/docs/CAVEATS.md) · [Build a dApp](/build-a-dapp)

@@ -15,7 +15,6 @@ export default defineConfig({
     { text: 'Quickstarts', link: 'https://build.eez.io', external: true },
     { text: 'Dashboard', link: 'https://rollupx.eez.dev/dashboard', external: true },
     { text: 'GitHub', link: 'https://github.com/eez-association', external: true },
-    // Last item is styled as a button in src/pages/_root.css (topNav has no button style).
     { text: 'Get in touch', link: 'https://tally.so/r/NpLo4l', external: true },
   ],
   // Serialized with toString, so it must stay self-contained. Synced pages map back
@@ -43,33 +42,12 @@ export default defineConfig({
   sidebar: [
     { text: 'Introduction', link: '/' },
     { text: 'Walkthrough', link: '/eez-walkthrough' },
-    { text: 'Try it: Quickstarts', link: 'https://build.eez.io' },
+    { text: 'Integrate a chain', link: '/integrate-a-chain' },
+    { text: 'Build a dApp', link: '/build-a-dapp' },
     { text: 'Build with AI', link: '/build-with-ai' },
     {
       text: 'Specification',
-      items: [
-        { text: 'Core protocol', link: '/core-protocol-spec' },
-        { text: 'Execution entries', link: '/execution-entry-spec' },
-        { text: 'Static entries', link: '/static-entry' },
-        { text: 'Multi-prover', link: '/multi-prover-spec' },
-        { text: 'Events and reconstruction', link: '/events' },
-      ],
-    },
-    {
-      text: 'Limits and boundaries',
-      items: [
-        { text: 'Call-pattern limits', link: '/call-pattern-limits' },
-        { text: 'Caveats', link: '/caveats' },
-        { text: 'Integration boundaries', link: '/integration-boundaries' },
-      ],
-    },
-    {
-      text: 'Blobs',
-      items: [
-        { text: 'Message format', link: '/blobs/blob-format-spec' },
-        { text: 'U256 compressed codec', link: '/blobs/u256-compressed-codec' },
-        { text: 'Future optimizations', link: '/blobs/future-optimizations' },
-      ],
+      link: 'https://github.com/eez-association/eez-core-protocol/tree/main/docs',
     },
   ],
 })

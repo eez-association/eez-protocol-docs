@@ -11,8 +11,16 @@ const { commit } = JSON.parse(fs.readFileSync('src/sync.json', 'utf8'))
 
 const section = new Map()
 for (const item of config.sidebar) {
-  if (item.link) section.set(item.link, 'EEZ Core Protocol')
-  for (const child of item.items ?? []) section.set(child.link, item.text)
+  if (item.link && !/^https?:\/\//.test(item.link)) section.set(item.link, 'EEZ Core Protocol')
+  for (const child of item.items ?? []) {
+    if (child.link && !/^https?:\/\//.test(child.link)) section.set(child.link, item.text)
+  }
+}
+
+const fallbackSection = (route) => {
+  if (route.startsWith('/blobs/')) return 'Blobs'
+  if (['/call-pattern-limits', '/integration-boundaries'].includes(route)) return 'Limits and boundaries'
+  return 'Specification'
 }
 
 function meta(src) {
@@ -31,8 +39,7 @@ fs.rmSync(out, { recursive: true, force: true })
 for (const file of files) {
   const route = '/' + file.replace(/\.mdx?$/, '').replace(/(^|\/)index$/, '')
   const { title = config.title, description = config.description } = meta(fs.readFileSync(path.join(pages, file), 'utf8'))
-  const eyebrow = section.get(route === '/' ? '/' : route)
-  if (!eyebrow) throw new Error(`og: ${route} is not in the sidebar`)
+  const eyebrow = section.get(route === '/' ? '/' : route) ?? fallbackSection(route)
   const dest = path.join(out, (route === '/' ? 'index' : route.slice(1)) + '.png')
   fs.mkdirSync(path.dirname(dest), { recursive: true })
   fs.writeFileSync(dest, await render({ eyebrow, title, description, commit }))
