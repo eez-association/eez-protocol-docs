@@ -7,7 +7,9 @@ import { CrossChainFlowStepper } from '../components/integrate/CrossChainFlowSte
 
 # Integrate a chain
 
-Any chain can join the Ethereum Economic Zone (EEZ), however it is sequenced. Your chain keeps its own sequencer, transaction format, block construction, governance, and token — while letting users call Ethereum mainnet contracts synchronously through local cross-chain proxies and receive the return value in the same transaction.
+Any chain can join the Ethereum Economic Zone (EEZ), however it is sequenced. Your chain keeps its own sequencer, transaction format, block construction, governance, and token — while letting users call Ethereum mainnet contracts synchronously through local cross-chain proxies and receive the return value in the same transaction. A new chain can build this in from genesis. An existing live chain has more to change, and the note below lists what.
+
+The EEZ core protocol is the framework: the contracts and specification every chain integrates. RollupX is its reference implementation. Gnosis Chain, built on `eez-rollup0`, is set to be the first general-purpose chain on EEZ. This guide is how other EVM chains integrate.
 
 Start with the 60-second overview, scope your stack with the interactive checklist, then follow the six playbook steps from devnet PoC to mainnet. Full ABI structs, hash formulas, and deployment scripts live in [`eez-core-protocol`](https://github.com/eez-association/eez-core-protocol).
 
@@ -19,7 +21,7 @@ If your chain already settles to Ethereum, you can either migrate settlement to 
 
 | Part of your stack | What stays yours | What you add for EEZ |
 | --- | --- | --- |
-| **Sequencer & ordering** | Local block production, mempool, fee policy, governance | Optional sync-slot coordination with an off-chain composer |
+| **Sequencer & ordering** | Local block production, mempool, fee policy, governance | Sync-slot coordination with an off-chain composer, needed once you enable cross-chain calls |
 | **Execution node** | EVM / execution client, state DB, RPCs | `EEZL2` contract + protected `SYSTEM_ADDRESS` + follow executed L1 updates (including L1 reorgs) |
 | **Proof systems** | Your choice of verifiers, keys, and per-rollup threshold | Proof or attestation ready within the same L1 block (start with ECDSA for PoC, upgrade to ZK / multi-prover) |
 | **L1 settlement** | Optional existing bridge (separate root and ETH balance if kept) | One `Rollup` contract registered on `EEZ`, posting state batches with execution entries |
@@ -27,10 +29,10 @@ If your chain already settles to Ethereum, you can either migrate settlement to 
 
 Every joining chain meets **two core rules**:
 1. **Verify state within one L1 block.** Synchronous cross-chain calls work only in an L1 block where your rollup's batch is verified on `EEZ`. Each rollup configures its own proof systems and approval threshold (with no protocol-level floor — a threshold may be `0`).
-2. **Follow Ethereum L1 history.** Because your EEZ root settles on L1, an L1 reorg may require an L2 reorg to stay aligned with executed L1 updates.
+2. **Follow Ethereum L1 history.** Your chain follows only the updates that actually execute on L1. If a block your node already executed does not land on L1 as simulated, or L1 itself reorgs, the affected L2 blocks must be reorged.
 
 :::note
-**Order of operations (live chain vs. new chain):** Calling `EEZ.registerRollup` on L1 assigns your `rollupId` first, and `EEZL2` on your chain is initialized with that `rollupId`. For a **new chain**, register on L1 and bake `EEZL2` into genesis. For an **existing live chain**, register on L1 first and schedule a coordinated upgrade / hard fork to deploy `EEZL2` and enable `SYSTEM_ADDRESS` execution rules.
+**Order of operations (live chain vs. new chain):** Calling `EEZ.registerRollup` on L1 assigns your `rollupId` first, and `EEZL2` on your chain is initialized with that `rollupId`. For a **new chain**, register on L1 and bake `EEZL2` into genesis. For an **existing live chain**, register on L1 first and schedule a coordinated upgrade / hard fork to deploy `EEZL2` and enable `SYSTEM_ADDRESS` execution rules. Plan for three more things on a live chain: for cross-chain calls your proof or attestation must land in the same L1 block as the call, your EEZ ETH balance starts at zero (ETH held in an existing bridge is not counted), and users can see blocks reorged that your sequencer had already confirmed.
 :::
 
 ## Scope your integration
@@ -69,7 +71,7 @@ We recommend the [EEZ message format](https://github.com/eez-association/eez-cor
 ### 4. Add cross-chain calls
 **Goal:** Enable synchronous L2 → L1 and L1 → L2 calls through local cross-chain proxies.
 
-Applications call a local **cross-chain proxy** representing a contract on another chain using its normal interface. On L2, deploy [`EEZL2`](https://github.com/eez-association/eez-core-protocol/blob/main/src/L2/EEZL2.sol) configured with your `rollupId`, a protected `SYSTEM_ADDRESS` (gated by node execution, derivation, and proving rules for `loadExecutionTable` and `executeIncomingCrossChainCall`), and enough pooled ETH for incoming value transfers.
+Applications call a local **cross-chain proxy** representing a contract on another chain using its normal interface. We recommend the same proxy pattern on L2; a chain that uses its own call mechanism must provide equivalent execution, access control, and ETH accounting. To use the reference contract, deploy [`EEZL2`](https://github.com/eez-association/eez-core-protocol/blob/main/src/L2/EEZL2.sol) configured with your `rollupId`, a protected `SYSTEM_ADDRESS` (gated by node execution, derivation, and proving rules for `loadExecutionTable` and `executeIncomingCrossChainCall`), and enough pooled ETH for incoming value transfers.
 
 Wire an off-chain **composer** to simulate cross-chain calls and build the paired L1 and L2 execution entries. For calls starting on L1, the batch must be verified **before** the user's L1 transaction reaches the proxy in the same block — either via an **L1 block builder bundle** or via a posting contract implementing **`IMetaCrossChainReceiver`** (`executeMetaCrossChainTransactions()` consumes remaining immediate entries in the same transaction).
 
@@ -113,13 +115,13 @@ Register on an existing `EEZ` deployment to compose with Ethereum L1 (and other 
 | **Private devnet** | Local / custom L1 | Self-deployed via [`deployment/README.md`](https://github.com/eez-association/eez-core-protocol/blob/main/deployment/README.md#individual-deployments) | [`main`](https://github.com/eez-association/eez-core-protocol) | Local `eez-rollup0` / `eez-rollupX` |
 
 :::note
-**Current status:** RollupX on Ethereum mainnet is an active stress-test deployment using `ECDSAProofSystem` (`Bridge` and `src/periphery/` fixtures are test-only and outside protocol audit scope). Calls between two L2s are ongoing work — neither reference rollup supports L2-to-L2 calls yet.
+**Current status:** RollupX on Ethereum mainnet is an active stress-test deployment using `ECDSAProofSystem` (`Bridge` and `src/periphery/` fixtures are test-only and outside protocol audit scope). Calls between two L2s are ongoing work — neither `eez-rollupX` nor `eez-rollup0` supports L2-to-L2 calls yet.
 :::
 
 ## Reference implementations & support
 
-- **[`eez-rollup0`](https://github.com/eez-association/eez-rollup0):** baseline L2-to-L1 and L1-to-L2 calls.
-- **[`eez-rollupX`](https://github.com/eez-association/eez-rollupX):** wider call patterns, including nested calls, callbacks, read-only (`STATICCALL`) calls, and reverted calls.
+- **[`eez-rollupX`](https://github.com/eez-association/eez-rollupX):** the reference implementation. It covers the wider call patterns, including nested calls, callbacks, read-only (`STATICCALL`) calls, and reverted calls.
+- **[`eez-rollup0`](https://github.com/eez-association/eez-rollup0):** the rollup behind Gnosis Chain's integration, with L2-to-L1 and L1-to-L2 calls.
 - **[Rollup Operators on `build.eez.io`](https://build.eez.io):** hands-on labs to run the reference stack locally, deploy contracts, and test cross-chain calls.
 - **Working with the EEZ team:** Planning a PoC or architecture review? Reach out via [Get in touch](https://tally.so/r/NpLo4l) to scope your stack (existing chain vs. new chain, proof path, and timeline) with the protocol engineers.
 
