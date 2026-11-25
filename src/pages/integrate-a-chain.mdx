@@ -13,14 +13,16 @@ Start with the 60-second overview, scope your stack with the interactive checkli
 
 ## How it works in 60 seconds
 
-Joining EEZ is **additive**. An existing chain does not have to replace its sequencer or its existing native bridge; it adds an EEZ state root on L1 and a synchronous execution lane that settles within one L1 block.
+`EEZ` does not dictate how your chain sequences blocks or governs upgrades. You keep your sequencer, transaction format, block construction, and governance — and add `EEZ` settlement on L1, `EEZL2` on your chain, and an off-chain composer with same-L1-block proof verification.
+
+If your chain already settles to Ethereum, you can either migrate settlement to `EEZ` or run `EEZ` alongside an existing native bridge — if you run both, `EEZ` tracks its own state root and isolated L1 ETH balance, so reconciling the two roots and security models is up to your chain.
 
 | Part of your stack | What stays yours | What you add for EEZ |
 | --- | --- | --- |
 | **Sequencer & ordering** | Local block production, mempool, fee policy, governance | Optional sync-slot coordination with an off-chain composer |
 | **Execution node** | EVM / execution client, state DB, RPCs | `EEZL2` contract + protected `SYSTEM_ADDRESS` + follow executed L1 updates (including L1 reorgs) |
 | **Proof systems** | Your choice of verifiers, keys, and per-rollup threshold | Proof or attestation ready within the same L1 block (start with ECDSA for PoC, upgrade to ZK / multi-prover) |
-| **L1 settlement** | Any existing native bridge or fault-proof settlement | One `Rollup` contract registered on `EEZ`, posting state batches with execution entries |
+| **L1 settlement** | Optional existing bridge (separate root and ETH balance if kept) | One `Rollup` contract registered on `EEZ`, posting state batches with execution entries |
 | **Applications** | Normal Solidity interfaces and user flows | Opt-in calls through local `CrossChainProxy` contracts (no async bridge wrapper) |
 
 Every joining chain meets **two core rules**:
