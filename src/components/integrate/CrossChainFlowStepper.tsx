@@ -299,7 +299,7 @@ const SCENARIOS: Scenario[] = [
         statusTone: 'warn',
         l2Label: 'Rollup A · Rollup B',
         arrow: { from: 'composer', to: 'l2', label: 'both chains agree on the call and its result', tone: 'warn', dashed: true },
-        summary: 'In progress. Contract E on rollup A calls contract F on rollup B. Both chains must agree on the call and its result before anything is posted.',
+        summary: 'Supported in the core contracts, in progress in the reference rollups. Contract E on rollup A calls contract F on rollup B. Both chains must agree on the call and its result before anything is posted.',
         l2: [
           { k: 'Rollup A', v: 'E calls proxy(F)', tone: 'ok', changed: true },
           { k: 'Rollup B', v: 'F runs, called by proxy(E, A)', tone: 'ok', changed: true },
@@ -316,7 +316,7 @@ const SCENARIOS: Scenario[] = [
         statusTone: 'warn',
         l2Label: 'Rollup A · Rollup B',
         arrow: { from: 'composer', to: 'l1', label: 'postAndVerifyBatch · one batch lists both rollups', tone: 'warn', dashed: true },
-        summary: 'In progress. One batch lists both rollups. Each is approved under its own rollup contract’s rule, and the entry carries a root update for every rollup involved.',
+        summary: 'Supported in the core contracts, in progress in the reference rollups. One batch lists both rollups. Each is approved under its own rollup contract’s rule, and the entry carries a root update for every rollup involved.',
         l2: [
           { k: 'Rollup A', v: 'Awaiting L1', tone: 'muted' },
           { k: 'Rollup B', v: 'Awaiting L1', tone: 'muted' },
