@@ -1,17 +1,37 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState, type KeyboardEvent } from 'react'
 
 type ScenarioId = 'l2-to-l1' | 'l1-to-l2' | 'static' | 'revert'
 type OrderingMode = 'builder' | 'metatx'
+type ValueTone = 'ok' | 'muted' | 'warn' | 'danger'
+type ActorId = 'l2' | 'composer' | 'l1'
+
+interface EntryField {
+  k: string
+  v: string
+  tone: ValueTone
+  changed?: boolean
+}
+
+interface FlowArrow {
+  from: ActorId
+  to: ActorId
+  label: string
+  tone: 'ok' | 'warn' | 'danger' | 'muted'
+  dashed?: boolean
+  broken?: boolean
+}
 
 interface Step {
   num: string
   title: string
-  actor: 'composer' | 'l2' | 'l1' | 'both'
+  activeActors: ActorId[]
+  statusTone?: 'ok' | 'warn' | 'danger'
+  arrow: FlowArrow
   summary: string
-  l2: Array<[string, string]>
-  l1: Array<[string, string]>
+  l2: EntryField[]
+  l1: EntryField[]
 }
 
 interface Scenario {
@@ -24,6 +44,14 @@ interface Scenario {
 
 const REPO = 'https://github.com/eez-association/eez-core-protocol/blob/main/docs'
 
+function ExternalIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <path d="M3.5 8.5L8.5 3.5M8.5 3.5H4.5M8.5 3.5V7.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 const SCENARIOS: Scenario[] = [
   {
     id: 'l2-to-l1',
@@ -34,43 +62,46 @@ const SCENARIOS: Scenario[] = [
       {
         num: '01',
         title: 'Simulate',
-        actor: 'composer',
-        summary: 'Composer runs D (L2) → C (L1), captures returnData, and computes callHash + rollingHash.',
+        activeActors: ['composer', 'l2', 'l1'],
+        arrow: { from: 'l2', to: 'l1', label: 'simulate D → C · compute rollingHash', tone: 'muted', dashed: true },
+        summary: 'Composer simulates D (L2) calling C (L1), captures returnData, and computes callHash + rollingHash for both tables.',
         l2: [
-          ['proxyEntryHash', 'callHash(D → C)'],
-          ['returnData', '<C return>'],
+          { k: 'proxyEntryHash', v: 'callHash(D → C)', tone: 'ok', changed: true },
+          { k: 'returnData', v: '<C return>', tone: 'ok', changed: true },
         ],
         l1: [
-          ['proxyEntryHash', 'bytes32(0)  // L2-origin'],
-          ['l2ToL1Calls[0]', 'D (R) → C (L1)'],
+          { k: 'proxyEntryHash', v: 'bytes32(0)  // L2-origin', tone: 'muted' },
+          { k: 'l2ToL1Calls[0]', v: 'D (R) → C (L1)', tone: 'ok', changed: true },
         ],
       },
       {
         num: '02',
         title: 'Load & run L2',
-        actor: 'l2',
-        summary: 'System caller loads the entry into EEZL2; D calls C’s proxy and gets C’s returnData immediately.',
+        activeActors: ['composer', 'l2'],
+        arrow: { from: 'composer', to: 'l2', label: 'loadExecutionTable → D calls proxy(C)', tone: 'ok' },
+        summary: 'System caller loads the entry into EEZL2; D calls C’s proxy and receives C’s simulated returnData in the same L2 tx.',
         l2: [
-          ['EEZL2.loadExecutionTable', 'Active'],
-          ['L2 root', 'oldRoot → newRoot'],
+          { k: 'EEZL2.loadExecutionTable', v: 'Active (entry loaded)', tone: 'ok', changed: true },
+          { k: 'L2 root', v: 'oldRoot → newRoot', tone: 'ok', changed: true },
         ],
         l1: [
-          ['EEZ root[R]', 'oldRoot (pending)'],
-          ['status', 'Awaiting batch'],
+          { k: 'EEZ root[R]', v: 'oldRoot (pending)', tone: 'muted' },
+          { k: 'status', v: 'Awaiting batch on L1', tone: 'muted' },
         ],
       },
       {
         num: '03',
         title: 'Verify & execute L1',
-        actor: 'l1',
-        summary: 'EEZ.postAndVerifyBatch verifies proofs, calls C via proxy(D, R), checks rollingHash, and commits newRoot.',
+        activeActors: ['composer', 'l1'],
+        arrow: { from: 'composer', to: 'l1', label: 'postAndVerifyBatch → proxy(D, R) calls C', tone: 'ok' },
+        summary: 'EEZ.postAndVerifyBatch verifies proofs, calls C via CrossChainProxy(D, R), checks rollingHash, and commits newRoot.',
         l2: [
-          ['Node sync', 'Follows executed L1 event'],
-          ['status', 'Finalized with L1'],
+          { k: 'Node sync', v: 'Follows executed L1 event', tone: 'ok', changed: true },
+          { k: 'status', v: 'Finalized with L1', tone: 'ok' },
         ],
         l1: [
-          ['msg.sender at C', 'CrossChainProxy(D, R)'],
-          ['rollingHash / root', 'Match ✓ → newRoot'],
+          { k: 'msg.sender at C', v: 'CrossChainProxy(D, R)', tone: 'ok', changed: true },
+          { k: 'rollingHash / root', v: 'Match · root → newRoot', tone: 'ok', changed: true },
         ],
       },
     ],
@@ -84,58 +115,79 @@ const SCENARIOS: Scenario[] = [
       {
         num: '01',
         title: 'Simulate',
-        actor: 'composer',
-        summary: 'Composer simulates Alice (L1, v ETH) → B (L2) and builds paired L1 queued + L2 delivery entries.',
+        activeActors: ['composer', 'l1', 'l2'],
+        arrow: { from: 'l1', to: 'l2', label: 'simulate Alice (v ETH) → B · pair entries', tone: 'muted', dashed: true },
+        summary: 'Composer simulates Alice (L1, v ETH) calling B (L2) and builds paired L1 queued and L2 delivery entries.',
         l2: [
-          ['incomingCalls[0]', 'Alice (L1) → B (R), v ETH'],
-          ['EEZL2 ETH', 'Needs ≥ v ETH'],
+          { k: 'incomingCalls[0]', v: 'Alice (L1) → B (R), v ETH', tone: 'ok', changed: true },
+          { k: 'EEZL2 ETH', v: 'Needs ≥ v ETH pooled', tone: 'warn' },
         ],
         l1: [
-          ['proxyEntryHash', 'callHash(Alice → B, v)'],
-          ['rollupUpdates', 'etherDelta: +v, newRoot'],
+          { k: 'proxyEntryHash', v: 'callHash(Alice → B, v)', tone: 'ok', changed: true },
+          { k: 'rollupUpdates', v: 'etherDelta: +v, newRoot', tone: 'ok', changed: true },
         ],
       },
       {
         num: '02',
         title: ordering === 'builder' ? 'Bundle & verify' : 'Meta-tx & verify',
-        actor: 'l1',
+        activeActors: ['composer', 'l1'],
+        arrow: {
+          from: 'composer',
+          to: 'l1',
+          label: ordering === 'builder' ? 'builder bundle: verify before Alice tx' : 'postAndVerifyBatch → meta receiver callback',
+          tone: 'warn',
+        },
         summary:
           ordering === 'builder'
-            ? 'Builder places postAndVerifyBatch before Alice’s tx in the same L1 block (verified, not yet executed).'
-            : 'Poster calls postAndVerifyBatch; EEZ invokes executeMetaCrossChainTransactions() on msg.sender to consume remaining immediate entries in the same tx.',
+            ? 'Builder places postAndVerifyBatch before Alice’s tx in the same L1 block. Entry is verified for this block only — not yet executed.'
+            : 'Poster calls postAndVerifyBatch; EEZ calls executeMetaCrossChainTransactions() on msg.sender to consume remaining immediate entries in the same tx.',
         l2: [
-          ['delivery', 'Waiting on L1 execution'],
-          ['L2 root', 'oldRoot'],
+          { k: 'delivery', v: 'Waiting on L1 execution', tone: 'muted' },
+          { k: 'L2 root', v: 'oldRoot (unchanged)', tone: 'muted' },
         ],
         l1: [
-          ['ordering', ordering === 'builder' ? 'Builder bundle (block queue)' : 'IMetaCrossChainReceiver (immediate table)'],
-          ['entry state', ordering === 'builder' ? 'Verified in current block' : 'Loaded in transient immediate table'],
+          {
+            k: 'ordering',
+            v: ordering === 'builder' ? 'Builder bundle (block queue)' : 'IMetaCrossChainReceiver (immediate)',
+            tone: 'ok',
+            changed: true,
+          },
+          {
+            k: 'entry state',
+            v: ordering === 'builder' ? 'Verified in current block only' : 'Loaded in transient immediate table',
+            tone: 'warn',
+            changed: true,
+          },
         ],
       },
       {
         num: '03',
         title: missedTx ? 'Missed tx (expired)' : 'Execute & deliver',
-        actor: missedTx ? 'l1' : 'both',
+        activeActors: missedTx ? ['l1'] : ['l1', 'l2'],
+        statusTone: missedTx ? 'danger' : 'ok',
+        arrow: missedTx
+          ? { from: 'l1', to: 'l2', label: 'Alice tx never reached proxy · entry expired', tone: 'danger', dashed: true, broken: true }
+          : { from: 'l1', to: 'l2', label: 'Alice → proxy(B) · executeIncomingCrossChainCall', tone: 'ok' },
         summary: missedTx
-          ? 'Alice’s tx never hit the proxy in this block. Entry expires unexecuted; L1 and L2 both stay at oldRoot.'
-          : 'Alice calls proxy(B) → EEZ credits +v ETH, commits newRoot, returns B’s data → system address delivers on EEZL2.',
+          ? 'Alice’s tx never reached the proxy in this L1 block. The entry expires unexecuted (Verified ≠ Executed); L1 and L2 both stay at oldRoot.'
+          : 'Alice calls proxy(B) → EEZ credits +v ETH, commits newRoot, returns B’s data in the same tx → system address delivers on EEZL2.',
         l2: missedTx
           ? [
-              ['delivery', 'DROPPED (Verified ≠ Executed)'],
-              ['L2 root', 'oldRoot (unchanged)'],
+              { k: 'delivery', v: 'DROPPED (Verified ≠ Executed)', tone: 'danger', changed: true },
+              { k: 'L2 root', v: 'oldRoot (unchanged)', tone: 'muted' },
             ]
           : [
-              ['executeIncomingCrossChainCall', 'Runs B with v ETH'],
-              ['L2 root', 'newRoot (matches L1)'],
+              { k: 'executeIncomingCrossChainCall', v: 'Runs B with v ETH', tone: 'ok', changed: true },
+              { k: 'L2 root', v: 'newRoot (matches L1)', tone: 'ok', changed: true },
             ],
         l1: missedTx
           ? [
-              ['entry', 'Expired at block end'],
-              ['EEZ root[R]', 'oldRoot (unchanged)'],
+              { k: 'entry', v: 'Expired at block end', tone: 'danger', changed: true },
+              { k: 'EEZ root[R]', v: 'oldRoot (unchanged)', tone: 'muted' },
             ]
           : [
-              ['EEZ root[R]', 'oldRoot → newRoot'],
-              ['returned to Alice', '<B return> in same tx'],
+              { k: 'EEZ root[R]', v: 'oldRoot → newRoot', tone: 'ok', changed: true },
+              { k: 'returned to Alice', v: '<B return> in same tx', tone: 'ok', changed: true },
             ],
       },
     ],
@@ -149,29 +201,31 @@ const SCENARIOS: Scenario[] = [
       {
         num: '01',
         title: 'Pin state',
-        actor: 'composer',
+        activeActors: ['composer', 'l1', 'l2'],
+        arrow: { from: 'l1', to: 'l2', label: 'StaticExecutionEntry · pin expectedRoots & cursor', tone: 'muted', dashed: true },
         summary: 'Read-only calls use StaticExecutionEntry (L1) or StaticExecutionEntryL2 (L2) with zero ETH and no root updates.',
         l2: [
-          ['expectedEntryIndex', 'Pins current EEZL2 cursor'],
-          ['state / ETH', 'No writes, 0 ETH'],
+          { k: 'expectedEntryIndex', v: 'Pins current EEZL2 cursor', tone: 'ok', changed: true },
+          { k: 'state / ETH', v: 'No writes, 0 ETH', tone: 'muted' },
         ],
         l1: [
-          ['expectedRoots', 'Pins live root[R]'],
-          ['rollupUpdates', 'None'],
+          { k: 'expectedRoots', v: 'Pins live root[R]', tone: 'ok', changed: true },
+          { k: 'rollupUpdates', v: 'None', tone: 'muted' },
         ],
       },
       {
         num: '02',
         title: 'Answer directly',
-        actor: 'both',
+        activeActors: ['l1'],
+        arrow: { from: 'l1', to: 'l1', label: 'STATICCALL checks expectedRoots · returns immediately', tone: 'ok' },
         summary: 'Proxy STATICCALL checks the state pin and returns data immediately. Top-level L1 → L2 reads need no L2 delivery.',
         l2: [
-          ['L2 delivery', 'None (for L1 → L2 read)'],
-          ['cursor', 'Unchanged'],
+          { k: 'L2 delivery', v: 'None (for L1 → L2 read)', tone: 'muted' },
+          { k: 'cursor', v: 'Unchanged', tone: 'muted' },
         ],
         l1: [
-          ['expectedRoots', 'Verified live ✓'],
-          ['root / ETH', 'Unchanged'],
+          { k: 'expectedRoots', v: 'Verified live', tone: 'ok', changed: true },
+          { k: 'root / ETH', v: 'Unchanged', tone: 'muted' },
         ],
       },
     ],
@@ -185,31 +239,180 @@ const SCENARIOS: Scenario[] = [
       {
         num: '01',
         title: 'Target reverts',
-        actor: 'both',
-        summary: 'Target revert bytes are passed back to the caller (success: false) and folded into rollingHash without failing the batch.',
+        activeActors: ['l2', 'l1'],
+        statusTone: 'warn',
+        arrow: { from: 'l1', to: 'l2', label: 'success: false + revert bytes folded into rollingHash', tone: 'warn', dashed: true },
+        summary: 'Target revert bytes return to the caller (success: false) and fold into rollingHash without failing the batch.',
         l2: [
-          ['caller entry', 'success: false, returnData: <err>'],
+          { k: 'caller entry', v: 'success: false, returnData: <err>', tone: 'danger', changed: true },
         ],
         l1: [
-          ['enclosing entry', 'success: true, returnData: 0x'],
-          ['rollingHash', 'Records revert + error bytes'],
+          { k: 'enclosing entry', v: 'success: true, returnData: 0x', tone: 'ok' },
+          { k: 'rollingHash', v: 'Records revert + error bytes', tone: 'warn', changed: true },
         ],
       },
       {
         num: '02',
         title: 'Enclosing reverts',
-        actor: 'both',
-        summary: 'L2 reverts after L2→L1 → set revertNextNCalls on L1 to roll back state. L1 reverts after L1→L2 → send no L2 delivery.',
+        activeActors: ['l2', 'l1'],
+        statusTone: 'danger',
+        arrow: { from: 'l2', to: 'l1', label: 'revertNextNCalls rolls back L1 / omit L2 delivery', tone: 'danger', dashed: true, broken: true },
+        summary: 'If L2 reverts after L2→L1, set revertNextNCalls on L1 to roll back state. If L1 reverts after L1→L2, send no L2 delivery.',
         l2: [
-          ['L1 caller reverted', 'No L2 delivery sent'],
+          { k: 'L1 caller reverted', v: 'No L2 delivery sent', tone: 'danger', changed: true },
         ],
         l1: [
-          ['L2 caller reverted', 'revertNextNCalls rolls back N calls'],
+          { k: 'L2 caller reverted', v: 'revertNextNCalls rolls back N calls', tone: 'warn', changed: true },
         ],
       },
     ],
   },
 ]
+
+const NODE_X: Record<ActorId, number> = {
+  l2: 92,
+  composer: 320,
+  l1: 548,
+}
+
+const TONE_STROKE: Record<FlowArrow['tone'], string> = {
+  ok: '#3BE57E',
+  warn: '#f5c36c',
+  danger: '#ff8a80',
+  muted: '#7f8999',
+}
+
+function SequenceDiagram({ step }: { step: Step }) {
+  const markerId = useId()
+  const { activeActors, arrow, statusTone } = step
+  const color = TONE_STROKE[arrow.tone]
+
+  const isActive = (id: ActorId) => activeActors.includes(id)
+  const nodeColor = (id: ActorId) => {
+    if (!isActive(id)) return '#2a2a2a'
+    if (statusTone === 'danger' && id === 'l1') return '#ff8a80'
+    if (statusTone === 'warn') return '#f5c36c'
+    return '#3BE57E'
+  }
+  const nodeFill = (id: ActorId) => {
+    if (!isActive(id)) return '#0d0d0d'
+    if (statusTone === 'danger' && id === 'l1') return 'rgba(255, 138, 128, 0.08)'
+    if (statusTone === 'warn') return 'rgba(245, 195, 108, 0.08)'
+    return 'rgba(59, 229, 126, 0.08)'
+  }
+
+  const renderArrow = () => {
+    const y = 30
+    if (arrow.from === arrow.to) {
+      const cx = NODE_X[arrow.from]
+      return (
+        <g>
+          <path
+            d={`M ${cx - 32} 50 C ${cx - 32} 18, ${cx + 32} 18, ${cx + 32} 45`}
+            fill="none"
+            stroke={color}
+            strokeWidth="1.6"
+            markerEnd={`url(#${markerId})`}
+          />
+          <text x={320} y={14} textAnchor="middle" fill={color} fontSize="10.5" fontFamily="var(--vocs-font-family-mono)">
+            {arrow.label}
+          </text>
+        </g>
+      )
+    }
+
+    const x1 = NODE_X[arrow.from]
+    const x2 = NODE_X[arrow.to]
+    const midX = (x1 + x2) / 2
+    const dir = x2 > x1 ? 1 : -1
+    const r = 6
+
+    return (
+      <g>
+        <path
+          d={`M ${x1} 50 V ${y + r} Q ${x1} ${y} ${x1 + dir * r} ${y} H ${x2 - dir * r} Q ${x2} ${y} ${x2} ${y + r} V 44`}
+          fill="none"
+          stroke={color}
+          strokeWidth="1.6"
+          strokeDasharray={arrow.dashed ? '4 4' : undefined}
+          markerEnd={arrow.broken ? undefined : `url(#${markerId})`}
+        />
+        {arrow.broken && (
+          <g transform={`translate(${midX}, ${y})`}>
+            <circle r="8.5" fill="#161616" stroke={color} strokeWidth="1.4" />
+            <path d="M -3 -3 L 3 3 M 3 -3 L -3 3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+          </g>
+        )}
+        <text x={320} y={14} textAnchor="middle" fill={color} fontSize="10.5" fontFamily="var(--vocs-font-family-mono)">
+          {arrow.label}
+        </text>
+      </g>
+    )
+  }
+
+  const nodes: Array<{ id: ActorId; label: string; sub: string }> = [
+    { id: 'l2', label: 'L2 · EEZL2', sub: 'Rollup' },
+    { id: 'composer', label: 'Composer / Prover', sub: 'Off-chain' },
+    { id: 'l1', label: 'L1 · EEZ', sub: 'Ethereum' },
+  ]
+
+  return (
+    <div className="eezi-diagram-wrap">
+      <svg className="eezi-diagram-svg" viewBox="0 0 640 98" role="img" aria-label={arrow.label}>
+        <defs>
+          <marker id={markerId} viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 1 1.5 L 8.5 5 L 1 8.5" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </marker>
+        </defs>
+
+        {/* Quiet baseline connectors */}
+        <line x1="168" y1="71" x2="232" y2="71" stroke="#222" strokeWidth="1" strokeDasharray="2 3" />
+        <line x1="408" y1="71" x2="472" y2="71" stroke="#222" strokeWidth="1" strokeDasharray="2 3" />
+
+        {renderArrow()}
+
+        {nodes.map((n) => {
+          const cx = NODE_X[n.id]
+          const w = n.id === 'composer' ? 176 : 152
+          const active = isActive(n.id)
+          return (
+            <g key={n.id} transform={`translate(${cx - w / 2}, 50)`}>
+              <rect
+                width={w}
+                height={42}
+                rx={8}
+                fill={nodeFill(n.id)}
+                stroke={nodeColor(n.id)}
+                strokeWidth={active ? 1.4 : 1}
+              />
+              <text
+                x={w / 2}
+                y={19}
+                textAnchor="middle"
+                fill={active ? '#ffffff' : '#8b95a5'}
+                fontSize="11.5"
+                fontWeight={active ? 600 : 400}
+                fontFamily="var(--vocs-font-family-mono)"
+              >
+                {n.label}
+              </text>
+              <text
+                x={w / 2}
+                y={33}
+                textAnchor="middle"
+                fill={active ? '#9aa3b3' : '#5e6673'}
+                fontSize="9.5"
+                fontFamily="var(--vocs-font-family-mono)"
+              >
+                {n.sub}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
 
 export function CrossChainFlowStepper() {
   const [scenarioId, setScenarioId] = useState<ScenarioId>('l2-to-l1')
@@ -228,24 +431,42 @@ export function CrossChainFlowStepper() {
     if (id !== 'l1-to-l2') setMissedTx(false)
   }
 
+  const toggleMissedTx = () => {
+    const next = !missedTx
+    setMissedTx(next)
+    // Jump directly to Step 03 so the failure outcome is immediately visible.
+    if (next) setStepIdx(steps.length - 1)
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      setStepIdx((i) => Math.min(steps.length - 1, i + 1))
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      setStepIdx((i) => Math.max(0, i - 1))
+    }
+  }
+
   return (
-    <div className="eezi-shell" role="region" aria-label="Cross-chain flow stepper">
+    <div className="eezi-shell" role="region" aria-label="Cross-chain flow stepper" tabIndex={0} onKeyDown={handleKeyDown}>
       <div className="eezi-head">
         <span className="eezi-eyebrow">[ FLOW STEPPER ]</span>
         <a className="eezi-link" href={scenario.repoHref} target="_blank" rel="noreferrer">
-          {scenario.repoLabel} ↗
+          <span>{scenario.repoLabel}</span>
+          <ExternalIcon />
         </a>
       </div>
 
       <div className="eezi-bar">
-        <div className="eezi-pill-group" role="tablist" aria-label="Flow scenarios">
+        <div className="eezi-seg" role="tablist" aria-label="Flow scenarios">
           {SCENARIOS.map((s) => (
             <button
               key={s.id}
               type="button"
               role="tab"
               aria-selected={scenarioId === s.id}
-              className={`eezi-pill ${scenarioId === s.id ? 'is-active' : ''}`}
+              className={`eezi-seg-btn ${scenarioId === s.id ? 'is-active' : ''}`}
               onClick={() => selectScenario(s.id)}
             >
               {s.label}
@@ -255,64 +476,78 @@ export function CrossChainFlowStepper() {
 
         {scenarioId === 'l1-to-l2' && (
           <div className="eezi-inline-opts">
-            <div className="eezi-pill-group" role="group" aria-label="Ordering">
-              <button type="button" className={`eezi-pill ${ordering === 'builder' ? 'is-active' : ''}`} aria-pressed={ordering === 'builder'} onClick={() => setOrdering('builder')}>
+            <div className="eezi-seg" role="group" aria-label="Ordering">
+              <button type="button" className={`eezi-seg-btn ${ordering === 'builder' ? 'is-active' : ''}`} aria-pressed={ordering === 'builder'} onClick={() => setOrdering('builder')}>
                 Builder
               </button>
-              <button type="button" className={`eezi-pill ${ordering === 'metatx' ? 'is-active' : ''}`} aria-pressed={ordering === 'metatx'} onClick={() => setOrdering('metatx')}>
+              <button type="button" className={`eezi-seg-btn ${ordering === 'metatx' ? 'is-active' : ''}`} aria-pressed={ordering === 'metatx'} onClick={() => setOrdering('metatx')}>
                 Meta-tx
               </button>
             </div>
-            <label className="eezi-toggle">
-              <input type="checkbox" checked={missedTx} onChange={(e) => setMissedTx(e.target.checked)} />
+            <button
+              type="button"
+              className={`eezi-fault-btn ${missedTx ? 'is-on' : ''}`}
+              aria-pressed={missedTx}
+              onClick={toggleMissedTx}
+            >
+              <span className="eezi-fault-dot" aria-hidden="true" />
               <span>User tx never lands</span>
-            </label>
+            </button>
           </div>
         )}
       </div>
 
       <div className="eezi-steps-strip" role="group" aria-label="Steps">
-        {steps.map((s, i) => (
-          <button
-            key={s.num}
-            type="button"
-            className={`eezi-step-chip ${i === idx ? 'is-active' : ''} ${i < idx ? 'is-done' : ''}`}
-            onClick={() => setStepIdx(i)}
-          >
-            <span className="eezi-step-num">{s.num}</span>
-            <span>{s.title}</span>
-          </button>
-        ))}
+        {steps.map((s, i) => {
+          const toneClass = s.statusTone ? `is-${s.statusTone}` : ''
+          return (
+            <button
+              key={`${scenarioId}-${s.num}`}
+              type="button"
+              aria-current={i === idx ? 'step' : undefined}
+              className={`eezi-step-chip ${toneClass} ${i === idx ? 'is-active' : ''} ${i < idx ? 'is-done' : ''}`}
+              onClick={() => setStepIdx(i)}
+            >
+              <span className="eezi-step-num">{s.num}</span>
+              <span>{s.title}</span>
+            </button>
+          )
+        })}
       </div>
 
-      <div className="eezi-lanes-compact" aria-label="Active actors">
-        <span className={`eezi-lane-dot ${step.actor === 'l2' || step.actor === 'both' ? 'is-lit' : ''}`}>L2 · EEZL2</span>
-        <span className="eezi-lane-sep">↔</span>
-        <span className={`eezi-lane-dot ${step.actor === 'composer' ? 'is-lit' : ''}`}>Composer / Proof system(s)</span>
-        <span className="eezi-lane-sep">↔</span>
-        <span className={`eezi-lane-dot ${step.actor === 'l1' || step.actor === 'both' ? 'is-lit' : ''}`}>L1 · EEZ</span>
-      </div>
+      <SequenceDiagram step={step} />
 
-      <p className="eezi-summary">{step.summary}</p>
+      <div role="tabpanel" aria-live="polite" className="eezi-flow-body">
+        <p className="eezi-summary">{step.summary}</p>
 
-      <div className="eezi-entries">
-        <div className="eezi-entry-box">
-          <div className="eezi-entry-head">L2</div>
-          {step.l2.map(([k, v]) => (
-            <div key={k} className="eezi-entry-row">
-              <span className="eezi-entry-k">{k}</span>
-              <span className="eezi-entry-v">{v}</span>
+        <div className="eezi-entries">
+          <div className="eezi-entry-box">
+            <div className="eezi-entry-head">
+              <span>L2 · EEZL2</span>
+              {step.activeActors.includes('l2') && <span className="eezi-live-dot" aria-hidden="true" />}
             </div>
-          ))}
-        </div>
-        <div className="eezi-entry-box">
-          <div className="eezi-entry-head">L1</div>
-          {step.l1.map(([k, v]) => (
-            <div key={k} className="eezi-entry-row">
-              <span className="eezi-entry-k">{k}</span>
-              <span className="eezi-entry-v">{v}</span>
+            {step.l2.map((item) => (
+              <div key={item.k} className={`eezi-entry-row ${item.changed ? 'is-changed' : ''}`}>
+                <span className="eezi-entry-k">{item.k}</span>
+                <span className={`eezi-entry-v eezi-val--${item.tone}`}>{item.v}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="eezi-entry-box">
+            <div className="eezi-entry-head">
+              <span>L1 · EEZ</span>
+              {step.activeActors.includes('l1') && (
+                <span className={`eezi-live-dot ${step.statusTone === 'danger' ? 'is-danger' : ''}`} aria-hidden="true" />
+              )}
             </div>
-          ))}
+            {step.l1.map((item) => (
+              <div key={item.k} className={`eezi-entry-row ${item.changed ? 'is-changed' : ''}`}>
+                <span className="eezi-entry-k">{item.k}</span>
+                <span className={`eezi-entry-v eezi-val--${item.tone}`}>{item.v}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -320,7 +555,9 @@ export function CrossChainFlowStepper() {
         <button type="button" className="eezi-nav-btn" disabled={idx === 0} onClick={() => setStepIdx((i) => Math.max(0, i - 1))}>
           ← Prev
         </button>
-        <span className="eezi-meta">{idx + 1} / {steps.length}</span>
+        <span className="eezi-meta">
+          {idx + 1} / {steps.length} <span className="eezi-kbd-hint">· ← / → keys</span>
+        </span>
         <button type="button" className="eezi-nav-btn" disabled={idx === steps.length - 1} onClick={() => setStepIdx((i) => Math.min(steps.length - 1, i + 1))}>
           Next →
         </button>
