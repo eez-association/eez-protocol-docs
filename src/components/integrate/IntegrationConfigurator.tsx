@@ -74,8 +74,8 @@ export function IntegrationConfigurator() {
       stepHref: '#1-register-on-l1',
       what:
         prover === 'ecdsa'
-          ? `Deploy ECDSAProofSystem + Rollup (per-rollup threshold; may be 0) and register via EEZ.registerRollup with ${initialRootPhrase}.`
-          : `Deploy verifier(s) + Rollup (vkeys, per-rollup threshold; may be 0) and register via EEZ.registerRollup with ${initialRootPhrase}.`,
+          ? `Deploy ECDSAProofSystem + Rollup (per-rollup threshold) and register via EEZ.registerRollup with ${initialRootPhrase}.`
+          : `Deploy verifier(s) + Rollup (vkeys, per-rollup threshold) and register via EEZ.registerRollup with ${initialRootPhrase}.`,
       repoLabel: 'deployment/README.md',
       repoHref: `${REPO}/deployment/README.md#individual-deployments`,
     },
@@ -87,10 +87,10 @@ export function IntegrationConfigurator() {
       addedBadge: base === 's2' ? '+ Stage 2' : base === 's3' ? '+ Stage 3' : undefined,
       what:
         base === 's1'
-          ? 'Post root-only batches via EEZ.postAndVerifyBatch (currentRoot, newRoot, etherDelta).'
+          ? 'Post root-only batches via EEZ.postAndVerifyBatch (currentRoot, newRoot, etherDelta = 0).'
           : base === 's2'
             ? 'Post batches carrying L2→L1 ExecutionEntry items via EEZ.postAndVerifyBatch.'
-            : 'Verify batch before the user L1 tx in the same block via builder bundle or IMetaCrossChainReceiver.',
+            : 'Verify the batch before the call in the same block: a builder bundle orders it before the user L1 tx, or an IMetaCrossChainReceiver poster makes the call inside the batch tx.',
       repoLabel: 'src/EEZ.sol',
       repoHref: `${REPO}/src/EEZ.sol`,
     },
