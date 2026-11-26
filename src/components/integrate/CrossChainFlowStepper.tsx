@@ -96,10 +96,10 @@ const SCENARIOS: Scenario[] = [
         title: 'Verify & execute L1',
         activeActors: ['composer', 'l1'],
         arrow: { from: 'composer', to: 'l1', label: 'postAndVerifyBatch → proxy(D, R) calls C', tone: 'ok' },
-        summary: 'EEZ.postAndVerifyBatch verifies proofs, calls C via CrossChainProxy(D, R), checks rollingHash, and commits newRoot.',
+        summary: 'EEZ.postAndVerifyBatch verifies proofs, calls C via CrossChainProxy(D, R), checks rollingHash, and commits newRoot. A leading entry runs inside postAndVerifyBatch; a queued one runs through executeL2Txs in the same block.',
         l2: [
           { k: 'Node sync', v: 'Follows executed L1 event', tone: 'ok', changed: true },
-          { k: 'status', v: 'Finalized with L1', tone: 'ok' },
+          { k: 'status', v: 'Matches L1 (reorgs with L1)', tone: 'ok' },
         ],
         l1: [
           { k: 'msg.sender at C', v: 'CrossChainProxy(D, R)', tone: 'ok', changed: true },
@@ -179,12 +179,14 @@ const SCENARIOS: Scenario[] = [
               dashed: true,
               broken: true,
             }
-          : { from: 'l1', to: 'l2', label: 'Alice → proxy(B) · executeIncomingCrossChainCall', tone: 'ok' },
+          : { from: 'l1', to: 'l2', label: ordering === 'builder' ? 'Alice → proxy(B) · executeIncomingCrossChainCall' : 'meta hook → proxy(B) · executeIncomingCrossChainCall', tone: 'ok' },
         summary: missedTx
           ? ordering === 'builder'
             ? 'Alice’s tx never reached the proxy in this L1 block. The queued entry expires unexecuted at block end (Verified ≠ Executed); L1 and L2 both stay at oldRoot.'
             : 'The meta receiver never called proxy(B) during executeMetaCrossChainTransactions(). EEZ wipes the transient immediate table when postAndVerifyBatch returns (Verified ≠ Executed); L1 and L2 both stay at oldRoot.'
-          : 'Alice calls proxy(B) → EEZ credits +v ETH, commits newRoot, returns B’s data in the same tx → system address delivers on EEZL2.',
+          : ordering === 'builder'
+            ? 'Alice calls proxy(B) → EEZ credits +v ETH, commits newRoot, returns B’s data in the same tx → system address delivers on EEZL2.'
+            : 'The meta hook calls proxy(B) inside the posting transaction → EEZ credits +v ETH, commits newRoot, returns B’s data in the same tx → system address delivers on EEZL2.',
         l2: missedTx
           ? [
               { k: 'delivery', v: 'DROPPED (Verified ≠ Executed)', tone: 'danger', changed: true },
@@ -206,7 +208,7 @@ const SCENARIOS: Scenario[] = [
             ]
           : [
               { k: 'EEZ root[R]', v: 'oldRoot → newRoot', tone: 'ok', changed: true },
-              { k: 'returned to Alice', v: '<B return> in same tx', tone: 'ok', changed: true },
+              { k: ordering === 'builder' ? 'returned to Alice' : 'returned to the hook', v: '<B return> in same tx', tone: 'ok', changed: true },
             ],
       },
     ],
@@ -236,8 +238,8 @@ const SCENARIOS: Scenario[] = [
         num: '02',
         title: 'Answer directly',
         activeActors: ['l1'],
-        arrow: { from: 'l1', to: 'l1', label: 'STATICCALL checks expectedRoots · returns immediately', tone: 'ok' },
-        summary: 'Proxy STATICCALL checks the state pin and returns data immediately. Top-level L1 → L2 reads need no L2 delivery.',
+        arrow: { from: 'l1', to: 'l1', label: 'STATICCALL → EEZ checks expectedRoots · returns immediately', tone: 'ok' },
+        summary: 'The proxy STATICCALLs EEZ, which checks the state pin and returns the recorded data. The rollup must be verified in this block. Top-level L1 → L2 reads need no L2 delivery.',
         l2: [
           { k: 'L2 delivery', v: 'None (for L1 → L2 read)', tone: 'muted' },
           { k: 'cursor', v: 'Unchanged', tone: 'muted' },
@@ -261,7 +263,7 @@ const SCENARIOS: Scenario[] = [
         activeActors: ['l2', 'l1'],
         statusTone: 'warn',
         arrow: { from: 'l1', to: 'l2', label: 'success: false + revert bytes folded into rollingHash', tone: 'warn', dashed: true },
-        summary: 'Target revert bytes return to the caller (success: false) and fold into rollingHash without failing the batch.',
+        summary: 'For an L2→L1 call, the L1 target’s revert bytes return to the L2 caller and fold into rollingHash without failing the entry. An L1→L2 call that reverts on L2 is never delivered: the L1 entry reverts with the recorded data.',
         l2: [
           { k: 'caller entry', v: 'success: false, returnData: <err>', tone: 'danger', changed: true },
         ],
